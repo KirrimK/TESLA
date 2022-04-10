@@ -87,6 +87,7 @@ for i in range(0,10):
         
         if verify_1 and verify_2:
             print("Verification of message {0} has been achieved".format(i-2))
+            
 
     #  Just wait for #num second(s) before "sending" the next packet
     # time.sleep(2)
