@@ -5,6 +5,23 @@ import time
 # For the sake of simplicity we will increase the last number by one and append it
 private_seed = b"Hello world"
 
+# Scheme II: Create the key chain
+key_chain = []
+
+for i in range(0,10):
+    if i == 0:
+        h = sha256()
+        h.update(private_seed)
+        hash = h.hexdigest()
+        key_chain.append(hash)
+    else:
+        h = sha256()
+        h.update(key_chain[i-1].encode())
+        hash = h.hexdigest()
+        key_chain.append(hash)
+
+print("Key chain: {0}".format(key_chain))
+
 verifier_list = []
 for i in range(0,10):
 
@@ -16,7 +33,11 @@ for i in range(0,10):
         private_seed = private_seed[:-1]
     private_seed = private_seed+i.to_bytes(1, 'big')
 
-    hm = hmac.new(msg=message, key=private_seed, digestmod=sha256)
+    # Scheme I:
+    # hm = hmac.new(msg=message, key=private_seed, digestmod=sha256)
+    
+    # Scheme I:
+    hm = hmac.new(msg=message, key=key_chain[i].encode(), digestmod=sha256)
     # print(len(hm.digest()))
 
     # Scheme I: Ti = T0 + i/r
@@ -28,13 +49,19 @@ for i in range(0,10):
         T0 = time.time() 
         Ti = T0 + i/r
         # TODO: Move that to a tuple for now, it is easier to do the operations
-        # TODO: Attach the Ti to the message
+        # TODO: Have to add the commitment to the key for Scheme I
+        # sent_message = (message, hm.digest(), None, Ti)
+
         sent_message = (message, hm.digest(), None, Ti)
+
+
     else:        
         Ti = T0 + i/r
         # TODO: Move that to a tuple for now, it is easier to do the operations
-        # TODO: Attach the Ti to the message
-        sent_message = (message, hm.digest(), attached_key, Ti)        
+        # TODO: Have to add the commitment to the key for Scheme I
+        # sent_message = (message, hm.digest(), attached_key, Ti)
+                
+        sent_message = (message, hm.digest(), key_chain[i-1], Ti)
 
 
     # print(sent_message)
@@ -71,23 +98,23 @@ for i in range(0,10):
         # What constitutes as δt? ReceiverTime - SenderTime?
         delta_t = 1
 
-        print("ArrTi of previous: {0}".format(message_for_verification[4]))
-        print("delta_t: {0}".format(delta_t))
-        print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
-        print("current_Ti: {0}".format(current_Ti))
+        # print("ArrTi of previous: {0}".format(message_for_verification[4]))
+        # print("delta_t: {0}".format(delta_t))
+        # print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
+        # print("current_Ti: {0}".format(current_Ti))
 
         verify_1 = False
         if ((Arr_Ti + delta_t < current_Ti)):        
             verify_1 = True
 
-        hm_val = hmac.new(msg=prev_message, key=prev_key, digestmod=sha256)
+        hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
         # print("New digest {0}".format(hm_val.digest()))
 
         verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
         
         if verify_1 and verify_2:
             print("Verification of message {0} has been achieved".format(i-2))
-            
+
 
     #  Just wait for #num second(s) before "sending" the next packet
     # time.sleep(2)
