@@ -2,6 +2,7 @@ from hashlib import blake2b, blake2s, sha256
 import hmac
 import re
 import time
+from math import ceil
 
 
 # Scheme II: Create the key chain
@@ -23,7 +24,7 @@ def create_Key_Chain(private_seed):
     return key_chain
     
 
-def sender_actions(key_chain, i, rate, private_seed, T0):    
+def sender_actions(key_chain, i, rate, private_seed, T0 , delay):    
     # Perform the HMAC operation
     message = b"crypt"
     attached_key = private_seed
@@ -43,22 +44,33 @@ def sender_actions(key_chain, i, rate, private_seed, T0):
     
     # Append the message, the HMAC and the previous key
     # Special condition: since for the first message there is no previous key
-    if i == 0:        
-        Ti = T0 + i/r
-        # TODO: Move that to a tuple for now, it is easier to do the operations
-        # TODO: Have to add the commitment to the key for Scheme I
-        # sent_message = (message, hm.digest(), None, Ti)
+    # if i == 0:        
+    #     Ti = T0 + i/r
+    #     # TODO: Move that to a tuple for now, it is easier to do the operations
+    #     # TODO: Have to add the commitment to the key for Scheme I
+    #     # sent_message = (message, hm.digest(), None, Ti)
 
+    #     sent_message = (message, hm.digest(), None, Ti)
+
+
+    # else:        
+    #     Ti = T0 + i/r
+    #     # TODO: Move that to a tuple for now, it is easier to do the operations
+    #     # TODO: Have to add the commitment to the key for Scheme I
+    #     # sent_message = (message, hm.digest(), attached_key, Ti)
+        
+
+    #     sent_message = (message, hm.digest(), key_chain[i-1], Ti)
+
+
+    # Scheme III
+    if( i-delay >= 0):
+        Ti = T0 + i/r
+        sent_message =  (message, hm.digest(), key_chain[i-delay], Ti)
+    else:
+        Ti = T0 + i/r
         sent_message = (message, hm.digest(), None, Ti)
 
-
-    else:        
-        Ti = T0 + i/r
-        # TODO: Move that to a tuple for now, it is easier to do the operations
-        # TODO: Have to add the commitment to the key for Scheme I
-        # sent_message = (message, hm.digest(), attached_key, Ti)
-                
-        sent_message = (message, hm.digest(), key_chain[i-1], Ti)
 
     # print(sent_message)
     # print("Previous key {0}".format(attached_key))
@@ -66,9 +78,9 @@ def sender_actions(key_chain, i, rate, private_seed, T0):
 
     return sent_message
 
-def receiver_actions(received_message, i, verifier_list, Arr_Ti):
+def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay):
         
-    message_for_verification = verifier_list[i-1]
+    message_for_verification = verifier_list[i-delay]
     print(message_for_verification)
     # prev_message = message_for_verification[:5]
     prev_message = message_for_verification[0]
@@ -110,12 +122,25 @@ def main():
     print("Key chain: {0}".format(key_chain))
 
     verifier_list = []
+    
+    # Scheme I: The timestamp of the first packet from the sender
     T0 = time.time()
+    
+    # Packet rate
+    r = 1
+
+    # Scheme III: The delay parameter set by the sender based on packet rate
+    # the maximum tolerable synchronization uncertainty and the maximum tolerable network delay
+    dtMax = 1
+    dNMax = 1
+    delay = ceil((dtMax+dNMax)*r)
+
     for i in range(0,10):
+        print(i)
 
         print("=========SENDER=========")
-        sent_message = sender_actions(key_chain=key_chain, i=i, rate=1, private_seed=private_seed, T0=T0)
-        
+        sent_message = sender_actions(key_chain=key_chain, i=i, rate=r, private_seed=private_seed, T0=T0 , delay=delay)        
+        # print(sent_message)
 
         # Now the verifier should store and verify the message based on some next disclosed key
         print("=========RECEIVER=========")
@@ -130,13 +155,14 @@ def main():
         else:
             verifier_list.append(received_message)
 
-        verification = receiver_actions(received_message=received_message, i=i, 
-            verifier_list=verifier_list, Arr_Ti=Arr_Ti)
+        if( i-delay >= 0):
+            verification = receiver_actions(received_message=received_message, i=i, 
+                verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay)
 
-        if not verification:
-            print("Verification of message {0} failed".format(i-2))
-        else:
-            print("Verification of message {0} achieved".format(i-2))
+            if not verification:
+                print("Verification of message {0} failed".format(i-delay))
+            else:
+                print("Verification of message {0} achieved".format(i-delay))
 
         #  Just wait for #num second(s) before "sending" the next packet
         # time.sleep(2)
