@@ -97,13 +97,13 @@ def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay):
     # TODO: Here perform the check ArrTi + δt < Ti+1        
     delta_t = 1
 
-    # print("ArrTi of previous: {0}".format(message_for_verification[4]))
-    # print("delta_t: {0}".format(delta_t))
-    # print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
-    # print("current_Ti: {0}".format(current_Ti))
+    print("ArrTi of previous: {0}".format(message_for_verification[4]))
+    print("delta_t: {0}".format(delta_t))
+    print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
+    print("current_Ti: {0}".format(current_Ti))
 
     verify_1 = False
-    if ((Arr_Ti + delta_t < current_Ti)):        
+    if (Arr_Ti + delta_t) < current_Ti:        
         verify_1 = True
 
     hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
@@ -140,11 +140,15 @@ def main():
 
         print("=========SENDER=========")
         sent_message = sender_actions(key_chain=key_chain, i=i, rate=r, private_seed=private_seed, T0=T0 , delay=delay)        
-        # print(sent_message)
+        # print(sent_message)        
 
         # Now the verifier should store and verify the message based on some next disclosed key
         print("=========RECEIVER=========")
         Arr_Ti = time.time() # Just simulate the arrival time
+
+        # The verification for message 1 should now fail
+        if i == 3:
+            Arr_Ti += 6
     
         received_message = sent_message + (Arr_Ti,)
         # print(received_message)
