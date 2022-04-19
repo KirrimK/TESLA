@@ -41,6 +41,10 @@ def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclo
     sender_current_time = time.time()
     interval = floor((sender_current_time-T0)/T_delta)
 
+    # Scheme IV artificial delay so the message verification will fail later
+    if i == 1:
+        interval = 1
+
     hm = hmac.new(msg=message, key=key_chain[interval-disclosure_lag].encode(), digestmod=sha256)
     # print(len(hm.digest()))
 
@@ -89,7 +93,7 @@ def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_de
     # message_for_verification = verifier_list[i-delay]
 
     # Scheme IV:
-    message_for_verification = verifier_list[i]
+    message_for_verification = verifier_list[i-disclosure_lag]
     print(message_for_verification)
     # prev_message = message_for_verification[:5]
     prev_message = message_for_verification[0]
@@ -118,9 +122,13 @@ def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_de
     # # if (Arr_Ti + delta_t) < current_Ti:        
     #     verify_1 = True
 
+    # Scheme IV
     receiver_current_time = time.time()
     # The following has notation i' in the paper
     max_allowed_interval = floor((receiver_current_time+delta_t-T0)/T_delta)
+    
+    # print("sender_interval {0}".format(sender_interval))
+    # print("max_allowed_interval {0}".format(max_allowed_interval))
 
     if (sender_interval + disclosure_lag) > max_allowed_interval:
         verify_1 = True
@@ -159,6 +167,7 @@ def main():
     T_delta = 3
     delta_Max = delta_tMax+dNMax
     disclosure_lag = ceil(delta_Max/T_delta)
+    # disclosure_lag = 2
 
     print("disclosure_lag: {0}".format(disclosure_lag))
 
@@ -201,9 +210,9 @@ def main():
                 T0=T0, disclosure_lag=disclosure_lag)
 
         if not verification:
-            print("Verification of message {0} failed".format(i))
+            print("Verification of message {0} failed".format(i-disclosure_lag))
         else:
-            print("Verification of message {0} achieved".format(i))
+            print("Verification of message {0} achieved".format(i-disclosure_lag))
 
         #  Just wait for #num second(s) before "sending" the next packet
         # time.sleep(2)
