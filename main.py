@@ -112,11 +112,72 @@ def scheme_IV_sender(message, key_chain, i, T0, T_delta, disclosure_lag):
     return sent_message
 
 
-def scheme_I_receiver():
-    return
+def scheme_I_receiver(received_message, i, verifier_list, delta_t, Arr_Ti):
+    message_for_verification = verifier_list[i-1]
+    print(message_for_verification)
+    # prev_message = message_for_verification[:5]
+    prev_message = message_for_verification[0]
 
-def scheme_II_receiver():
-    return
+    # print(prev_message)         
+    prev_hm = message_for_verification[1]   
+    # print(prev_hm)
+    prev_key = received_message[2]
+    # print(prev_key)
+
+    current_Ti = received_message[3]
+    # print(current_Ti) 
+
+    delta_t = 1
+
+    # print("ArrTi of previous: {0}".format(message_for_verification[4]))
+    # print("delta_t: {0}".format(delta_t))
+    # print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
+    # print("current_Ti: {0}".format(current_Ti))
+
+    verify_1 = False
+    # Scheme II: Security condition
+    if (Arr_Ti + delta_t) < current_Ti:        
+        verify_1 = True
+
+    hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
+    # print("New digest {0}".format(hm_val.digest()))
+
+    verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
+    
+    return verify_1 and verify_2
+
+def scheme_II_receiver(received_message, i, verifier_list, delta_t, Arr_Ti):
+    
+    message_for_verification = verifier_list[i-1]
+    print(message_for_verification)
+    # prev_message = message_for_verification[:5]
+    prev_message = message_for_verification[0]
+
+    # print(prev_message)         
+    prev_hm = message_for_verification[1]   
+    # print(prev_hm)
+    prev_key = received_message[2]
+    # print(prev_key)
+
+    current_Ti = received_message[3]
+    # print(current_Ti)
+
+    # print("ArrTi of previous: {0}".format(message_for_verification[4]))
+    # print("delta_t: {0}".format(delta_t))
+    # print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
+    # print("current_Ti: {0}".format(current_Ti))
+
+    verify_1 = False
+    # Scheme II: Security condition
+    if (Arr_Ti + delta_t) < current_Ti:        
+        verify_1 = True
+
+    hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
+    # print("New digest {0}".format(hm_val.digest()))
+
+    verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
+    
+    return verify_1 and verify_2
 
 def scheme_III_receiver(received_message, i, verifier_list, delta_t, T0, Arr_Ti, delay):
 
@@ -152,6 +213,7 @@ def scheme_III_receiver(received_message, i, verifier_list, delta_t, T0, Arr_Ti,
     verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
     
     return verify_1 and verify_2
+
 def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta, disclosure_lag):
    
     message_for_verification = verifier_list[i-disclosure_lag]
@@ -195,57 +257,10 @@ def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclo
     return sent_message
 
 def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_delta, disclosure_lag):
-
-    # Scheme III
-    # message_for_verification = verifier_list[i-delay]
-
-    # Scheme IV:
-    message_for_verification = verifier_list[i-disclosure_lag]
-    print(message_for_verification)
-    # prev_message = message_for_verification[:5]
-    prev_message = message_for_verification[0]
-
-    # print(prev_message)         
-    prev_hm = message_for_verification[1]   
-    # print(prev_hm)
-    prev_key = received_message[2]
-    # print(prev_key)
-
-    # Scheme III
-    # current_Ti = received_message[3]
-    # print(current_Ti) 
-     
-    sender_interval =  received_message[3] 
-
     delta_t = 1
 
-    # print("ArrTi of previous: {0}".format(message_for_verification[4]))
-    # print("delta_t: {0}".format(delta_t))
-    # print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
-    # print("current_Ti: {0}".format(current_Ti))
-
-    verify_1 = False
-    # Scheme III: Security condition
-    # # if (Arr_Ti + delta_t) < current_Ti:        
-    #     verify_1 = True
-
-    # Scheme IV
-    receiver_current_time = time.time()
-    # The following has notation i' in the paper
-    max_allowed_interval = floor((receiver_current_time+delta_t-T0)/T_delta)
-    
-    # print("sender_interval {0}".format(sender_interval))
-    # print("max_allowed_interval {0}".format(max_allowed_interval))
-
-    if (sender_interval + disclosure_lag) > max_allowed_interval:
-        verify_1 = True
-
-    hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
-    # print("New digest {0}".format(hm_val.digest()))
-
-    verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
-    
-    return verify_1 and verify_2
+    verification = scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta, disclosure_lag)
+    return verification
 
 def main():
     # For the sake of simplicity we will increase the last number by one and append it
