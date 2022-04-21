@@ -21,69 +21,176 @@ def create_Key_Chain(private_seed):
             key_chain.append(hash)
 
     return key_chain
-    
 
-def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclosure_lag):    
-    # Perform the HMAC operation
-    message = b"crypt"
+
+def scheme_I_sender(message, private_seed, rate, i, T0):
+    # Perform the HMAC operation    
     attached_key = private_seed
     if i != 0:
         private_seed = private_seed[:-1]
     private_seed = private_seed+i.to_bytes(1, 'big')
 
     # Scheme I:
-    # hm = hmac.new(msg=message, key=private_seed, digestmod=sha256)
-    
-    # Scheme I:
-    # hm = hmac.new(msg=message, key=key_chain[i].encode(), digestmod=sha256)
+    hm = hmac.new(msg=message, key=private_seed, digestmod=sha256)
+
+    # Scheme I: Ti = T0 + i/r
+    r = rate # One packet every 1 second
+
+    # Append the message, the HMAC and the previous key
+    # Special condition: since for the first message there is no previous key
+    if i == 0:        
+        Ti = T0 + i/r
+        # TODO: Move that to a tuple for now, it is easier to do the operations
+        # TODO: Have to add the commitment to the key for Scheme I
+        sent_message = (message, hm.digest(), None, Ti)
+
+    else:        
+        Ti = T0 + i/r
+        # TODO: Move that to a tuple for now, it is easier to do the operations
+        # TODO: Have to add the commitment to the key for Scheme I
+        sent_message = (message, hm.digest(), attached_key, Ti)
+
+    return sent_message
+
+def scheme_II_sender(message, rate, i, T0, key_chain):
+
+    hm = hmac.new(msg=message, key=key_chain[i].encode(), digestmod=sha256)
+
+    r = rate # One packet every 1 second
+
+    # Append the message, the HMAC and the previous key
+    # Special condition: since for the first message there is no previous key
+    if i == 0:        
+        Ti = T0 + i/r
+        # TODO: Move that to a tuple for now, it is easier to do the operations        
+        sent_message = (message, hm.digest(), None, Ti)
+
+
+    else:        
+        Ti = T0 + i/r
+        # TODO: Move that to a tuple for now, it is easier to do the operations
+        sent_message = (message, hm.digest(), key_chain[i-1], Ti)
+
+    return sent_message
+
+def scheme_III_sender(message, rate, i, T0, delay, key_chain):
+
+    hm = hmac.new(msg=message, key=key_chain[i].encode(), digestmod=sha256)
+
+    r = rate # One packet every 1 second
+
+    # Scheme III
+    if( i-delay >= 0):
+        Ti = T0 + i/r
+        sent_message =  (message, hm.digest(), key_chain[i-delay], Ti)
+    else:
+        Ti = T0 + i/r
+        sent_message = (message, hm.digest(), None, Ti)
+
+    return sent_message
+
+def scheme_IV_sender(message, key_chain, i, T0, T_delta, disclosure_lag):
 
     # Scheme IV: The calulated interval
     sender_current_time = time.time()
     interval = floor((sender_current_time-T0)/T_delta)
 
     # Scheme IV artificial delay so the message verification will fail later
-    if i == 1:
-        interval = 1
+    # We choose the next key in the chain for this demonstration
+    # if i == 1:
+    #     interval = 1
+    #     disclosure_lag = 3
 
     hm = hmac.new(msg=message, key=key_chain[interval-disclosure_lag].encode(), digestmod=sha256)
-    # print(len(hm.digest()))
 
-    # Scheme I: Ti = T0 + i/r
-    r = rate # One packet every 1 second
-    
-    # Append the message, the HMAC and the previous key
-    # Special condition: since for the first message there is no previous key
-    # if i == 0:        
-    #     Ti = T0 + i/r
-    #     # TODO: Move that to a tuple for now, it is easier to do the operations
-    #     # TODO: Have to add the commitment to the key for Scheme I
-    #     # sent_message = (message, hm.digest(), None, Ti)
-
-    #     sent_message = (message, hm.digest(), None, Ti)
-
-
-    # else:        
-    #     Ti = T0 + i/r
-    #     # TODO: Move that to a tuple for now, it is easier to do the operations
-    #     # TODO: Have to add the commitment to the key for Scheme I
-    #     # sent_message = (message, hm.digest(), attached_key, Ti)
-        
-
-    #     sent_message = (message, hm.digest(), key_chain[i-1], Ti)
-
-    # Scheme III
-    # if( i-delay >= 0):
-    #     Ti = T0 + i/r
-    #     sent_message =  (message, hm.digest(), key_chain[i-delay], Ti)
-    # else:
-    #     Ti = T0 + i/r
-    #     sent_message = (message, hm.digest(), None, Ti)
-
-    sent_message =  (message, hm.digest(), key_chain[interval-disclosure_lag], interval)
+    sent_message = (message, hm.digest(), key_chain[interval-disclosure_lag], interval)
 
     # print(sent_message)
     # print("Previous key {0}".format(attached_key))
     # print("Current key {0}".format(private_seed))
+
+    return sent_message
+
+
+def scheme_I_receiver():
+    return
+
+def scheme_II_receiver():
+    return
+
+def scheme_III_receiver(received_message, i, verifier_list, delta_t, T0, Arr_Ti, delay):
+
+    message_for_verification = verifier_list[i-delay]
+    print(message_for_verification)
+    # prev_message = message_for_verification[:5]
+    prev_message = message_for_verification[0]
+
+    # print(prev_message)         
+    prev_hm = message_for_verification[1]   
+    # print(prev_hm)
+    prev_key = received_message[2]
+    # print(prev_key)
+
+    current_Ti = received_message[3]
+    # print(current_Ti) 
+
+    delta_t = 1
+
+    # print("ArrTi of previous: {0}".format(message_for_verification[4]))
+    # print("delta_t: {0}".format(delta_t))
+    # print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
+    # print("current_Ti: {0}".format(current_Ti))
+
+    verify_1 = False
+    # Scheme III: Security condition
+    if (Arr_Ti + delta_t) < current_Ti:        
+        verify_1 = True
+
+    hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
+    # print("New digest {0}".format(hm_val.digest()))
+
+    verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
+    
+    return verify_1 and verify_2
+def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta, disclosure_lag):
+   
+    message_for_verification = verifier_list[i-disclosure_lag]
+    print(message_for_verification)
+    # prev_message = message_for_verification[:5]
+    prev_message = message_for_verification[0]
+
+    # print(prev_message)         
+    prev_hm = message_for_verification[1]   
+    # print(prev_hm)
+    prev_key = received_message[2]
+
+    sender_interval =  received_message[3]
+   
+    verify_1 = False
+   
+    receiver_current_time = time.time()
+    # The following has notation i' in the paper
+    max_allowed_interval = floor((receiver_current_time+delta_t-T0)/T_delta)
+    
+    # print("sender_interval {0}".format(sender_interval))
+    # print("max_allowed_interval {0}".format(max_allowed_interval))
+
+    if (sender_interval + disclosure_lag) > max_allowed_interval:
+        verify_1 = True
+
+    hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
+    # print("New digest {0}".format(hm_val.digest()))
+
+    verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
+    
+    return verify_1 and verify_2
+    
+
+def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclosure_lag):    
+    message = b"crypt"
+    # sent_message = scheme_I_sender(message=message, private_seed=private_seed, rate=rate, i=i, T0=T0)
+
+    sent_message = scheme_IV_sender(message=message, key_chain=key_chain,  i=i, T0=T0, T_delta=T_delta, disclosure_lag=disclosure_lag)
 
     return sent_message
 
@@ -108,7 +215,7 @@ def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_de
     # current_Ti = received_message[3]
     # print(current_Ti) 
      
-    sender_interval =  received_message[3]      
+    sender_interval =  received_message[3] 
 
     delta_t = 1
 
