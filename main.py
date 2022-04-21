@@ -112,6 +112,7 @@ def scheme_IV_sender(message, key_chain, i, T0, T_delta, disclosure_lag):
     return sent_message
 
 
+
 def scheme_I_receiver(received_message, i, verifier_list, delta_t, Arr_Ti):
     message_for_verification = verifier_list[i-1]
     print(message_for_verification)
