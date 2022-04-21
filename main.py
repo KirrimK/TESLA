@@ -179,7 +179,7 @@ def scheme_II_receiver(received_message, i, verifier_list, delta_t, Arr_Ti):
     
     return verify_1 and verify_2
 
-def scheme_III_receiver(received_message, i, verifier_list, delta_t, T0, Arr_Ti, delay):
+def scheme_III_receiver(received_message, i, verifier_list, delta_t, Arr_Ti, delay):
 
     message_for_verification = verifier_list[i-delay]
     print(message_for_verification)
@@ -250,17 +250,26 @@ def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta,
 
 def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclosure_lag):    
     message = b"crypt"
-    # sent_message = scheme_I_sender(message=message, private_seed=private_seed, rate=rate, i=i, T0=T0)
+    # return scheme_I_sender(message=message, private_seed=private_seed, rate=rate, i=i, T0=T0)
 
-    sent_message = scheme_IV_sender(message=message, key_chain=key_chain,  i=i, T0=T0, T_delta=T_delta, disclosure_lag=disclosure_lag)
+    return scheme_II_sender(message=message, rate=rate, i=i, T0=T0, key_chain=key_chain)
 
-    return sent_message
+    # return scheme_III_sender(message=message, rate=rate, i=i, T0=T0, delay=delay, key_chain=key_chain)
+        
+    # return scheme_IV_sender(message=message, key_chain=key_chain,  i=i, T0=T0, T_delta=T_delta, 
+    #   disclosure_lag=disclosure_lag)
 
 def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_delta, disclosure_lag):
     delta_t = 1
 
-    verification = scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta, disclosure_lag)
-    return verification
+    return scheme_II_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
+        delta_t=delta_t, Arr_Ti=Arr_Ti,)
+
+    # return scheme_III_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
+    #     delta_t=delta_t, Arr_Ti=Arr_Ti, delay=delay)
+
+    # return scheme_IV_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
+    #   delta_t=delta_t, T0=T0, T_delta=T_delta, disclosure_lag=disclosure_lag)
 
 def main():
     # For the sake of simplicity we will increase the last number by one and append it
@@ -318,23 +327,23 @@ def main():
             verifier_list.append(received_message)
 
         # Scheme III:
-        # if( i-delay >= 0):
-        #     verification = receiver_actions(received_message=received_message, i=i, 
-        #         verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, T0=T0, disclosure_lag=disclosure_lag)
+        if( i-delay >= 0):
+            verification = receiver_actions(received_message=received_message, i=i, 
+                verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, T0=T0, disclosure_lag=disclosure_lag)
 
-        #     if not verification:
-        #         print("Verification of message {0} failed".format(i-delay))
-        #     else:
-        #         print("Verification of message {0} achieved".format(i-delay))
+            if not verification:
+                print("Verification of message {0} failed".format(i-delay))
+            else:
+                print("Verification of message {0} achieved".format(i-delay))
 
-        verification = receiver_actions(received_message=received_message, i=i, 
-                verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, 
-                T0=T0, disclosure_lag=disclosure_lag)
+        # verification = receiver_actions(received_message=received_message, i=i, 
+        #         verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, 
+        #         T0=T0, disclosure_lag=disclosure_lag)
 
-        if not verification:
-            print("Verification of message {0} failed".format(i-disclosure_lag))
-        else:
-            print("Verification of message {0} achieved".format(i-disclosure_lag))
+        # if not verification:
+        #     print("Verification of message {0} failed".format(i-disclosure_lag))
+        # else:
+        #     print("Verification of message {0} achieved".format(i-disclosure_lag))
 
         #  Just wait for #num second(s) before "sending" the next packet
         # time.sleep(2)
