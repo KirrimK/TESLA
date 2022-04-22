@@ -1,5 +1,6 @@
 from hashlib import blake2b, blake2s, sha256
 import hmac
+from pickle import TRUE
 import time
 from math import ceil, floor
 
@@ -24,14 +25,20 @@ def create_Key_Chain(private_seed):
 
 
 def scheme_I_sender(message, private_seed, rate, i, T0):
-    # Perform the HMAC operation    
+    # # Perform the HMAC operation    
     attached_key = private_seed
-    if i != 0:
-        private_seed = private_seed[:-1]
-    private_seed = private_seed+i.to_bytes(1, 'big')
+    # if i != 0:
+    #     private_seed = private_seed[:-1]
+    # private_seed = private_seed+i.to_bytes(1, 'big')
+
+    print("CALC {0}".format(private_seed))
 
     # Scheme I:
     hm = hmac.new(msg=message, key=private_seed, digestmod=sha256)
+
+    h = sha256()
+    h.update(private_seed)
+    commitment = h.hexdigest()
 
     # Scheme I: Ti = T0 + i/r
     r = rate # One packet every 1 second
@@ -42,13 +49,15 @@ def scheme_I_sender(message, private_seed, rate, i, T0):
         Ti = T0 + i/r
         # TODO: Move that to a tuple for now, it is easier to do the operations
         # TODO: Have to add the commitment to the key for Scheme I
-        sent_message = (message, hm.digest(), None, Ti)
+        sent_message = (message, hm.digest(), None, commitment,  Ti)
 
     else:        
         Ti = T0 + i/r
+        attached_key = attached_key[:-1]
+        attached_key = attached_key + (i-1).to_bytes(1, 'big')
         # TODO: Move that to a tuple for now, it is easier to do the operations
-        # TODO: Have to add the commitment to the key for Scheme I
-        sent_message = (message, hm.digest(), attached_key, Ti)
+        # TODO: Have to add the commitment to the key for Scheme I        
+        sent_message = (message, hm.digest(), attached_key, commitment,  Ti)
 
     return sent_message
 
@@ -125,7 +134,13 @@ def scheme_I_receiver(received_message, i, verifier_list, delta_t, Arr_Ti):
     prev_key = received_message[2]
     # print(prev_key)
 
-    current_Ti = received_message[3]
+    prev_commit = message_for_verification[3]
+    # print(prev_commit)
+
+    current_commit = received_message[3]
+    # print(current_commit)
+
+    current_Ti = received_message[4]
     # print(current_Ti) 
 
     delta_t = 1
@@ -134,18 +149,22 @@ def scheme_I_receiver(received_message, i, verifier_list, delta_t, Arr_Ti):
     # print("delta_t: {0}".format(delta_t))
     # print("ArrTi + delta_t: {0}".format(message_for_verification[4]+delta_t))
     # print("current_Ti: {0}".format(current_Ti))
+    
 
     verify_1 = False
-    # Scheme II: Security condition
-    if (Arr_Ti + delta_t) < current_Ti:        
+    # Scheme I-II: Security condition
+    if (Arr_Ti + delta_t) < current_Ti:
         verify_1 = True
 
-    hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
+    hm_val = hmac.new(msg=prev_message, key=prev_key, digestmod=sha256)
     # print("New digest {0}".format(hm_val.digest()))
 
     verify_2 = hmac.compare_digest(hm_val.digest(), prev_hm)
+
+    # Check the commitment
+    verify_3 = True if prev_commit == sha256(prev_key).hexdigest() else False
     
-    return verify_1 and verify_2
+    return verify_1 and verify_2 and verify_3
 
 def scheme_II_receiver(received_message, i, verifier_list, delta_t, Arr_Ti):
     
@@ -251,9 +270,17 @@ def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta,
 
 def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclosure_lag):    
     message = b"crypt"
-    # return scheme_I_sender(message=message, private_seed=private_seed, rate=rate, i=i, T0=T0)
 
-    return scheme_II_sender(message=message, rate=rate, i=i, T0=T0, key_chain=key_chain)
+    # Perform the HMAC operation
+    if i != 0:
+        private_seed = private_seed[:-1]
+        private_seed = private_seed + (i).to_bytes(1, 'big')
+    else:
+        private_seed = private_seed + (i).to_bytes(1, 'big')
+
+    return scheme_I_sender(message=message, private_seed=private_seed, rate=rate, i=i, T0=T0)
+
+    # return scheme_II_sender(message=message, rate=rate, i=i, T0=T0, key_chain=key_chain)
 
     # return scheme_III_sender(message=message, rate=rate, i=i, T0=T0, delay=delay, key_chain=key_chain)
         
@@ -262,9 +289,12 @@ def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclo
 
 def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_delta, disclosure_lag):
     delta_t = 1
+    
+    return scheme_I_receiver(received_message=received_message, i=i, verifier_list=verifier_list,
+        delta_t=delta_t, Arr_Ti=Arr_Ti)
 
-    return scheme_II_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
-        delta_t=delta_t, Arr_Ti=Arr_Ti,)
+    # return scheme_II_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
+    #     delta_t=delta_t, Arr_Ti=Arr_Ti,)
 
     # return scheme_III_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
     #     delta_t=delta_t, Arr_Ti=Arr_Ti, delay=delay)
@@ -301,7 +331,7 @@ def main():
     disclosure_lag = ceil(delta_Max/T_delta)
     # disclosure_lag = 2
 
-    print("disclosure_lag: {0}".format(disclosure_lag))
+    # print("disclosure_lag: {0}".format(disclosure_lag))
 
     for i in range(0,10):
         print(i)
@@ -326,25 +356,27 @@ def main():
             continue       
         else:
             verifier_list.append(received_message)
+            
 
         # Scheme III:
-        if( i-delay >= 0):
-            verification = receiver_actions(received_message=received_message, i=i, 
-                verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, T0=T0, disclosure_lag=disclosure_lag)
+        # if( i-delay >= 0):
+        #     verification = receiver_actions(received_message=received_message, i=i, 
+        #         verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, T0=T0, disclosure_lag=disclosure_lag)
 
-            if not verification:
-                print("Verification of message {0} failed".format(i-delay))
-            else:
-                print("Verification of message {0} achieved".format(i-delay))
+        #     if not verification:
+        #         print("Verification of message {0} failed".format(i-delay))
+        #     else:
+        #         print("Verification of message {0} achieved".format(i-delay))
 
-        # verification = receiver_actions(received_message=received_message, i=i, 
-        #         verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, 
-        #         T0=T0, disclosure_lag=disclosure_lag)
+        
+        verification = receiver_actions(received_message=received_message, i=i, 
+                verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, 
+                T0=T0, disclosure_lag=disclosure_lag)
 
-        # if not verification:
-        #     print("Verification of message {0} failed".format(i-disclosure_lag))
-        # else:
-        #     print("Verification of message {0} achieved".format(i-disclosure_lag))
+        if not verification:
+            print("Verification of message {0} failed".format(i-disclosure_lag))
+        else:
+            print("Verification of message {0} achieved".format(i-disclosure_lag))
 
         #  Just wait for #num second(s) before "sending" the next packet
         # time.sleep(2)
