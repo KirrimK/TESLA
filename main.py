@@ -1,15 +1,14 @@
 from hashlib import blake2b, blake2s, sha256
 import hmac
-from pickle import TRUE
-import time
+from time import perf_counter, time
 from math import ceil, floor
 
 
 # Scheme II: Create the key chain
-def create_Key_Chain(private_seed):
+def create_Key_Chain(private_seed, N):
     key_chain = []
 
-    for i in range(0,10):
+    for i in range(0,N):
         if i == 0:
             h = sha256()
             h.update(private_seed)
@@ -22,6 +21,13 @@ def create_Key_Chain(private_seed):
             key_chain.append(hash)
 
     return key_chain
+
+# TODO: Do we need to apply multiple hashing here?
+def key_verification(previous_key, current_key):
+    verify = True if previous_key == sha256(current_key.encode()).hexdigest() else False
+    print("Prev: {0}".format(previous_key))
+    print("Curr: {0}".format(current_key))
+    print("Hash_chain verification: {0}".format(verify))
 
 
 def scheme_I_sender(message, private_seed, rate, i, T0):
@@ -101,7 +107,7 @@ def scheme_III_sender(message, rate, i, T0, delay, key_chain):
 def scheme_IV_sender(message, key_chain, i, T0, T_delta, disclosure_lag):
 
     # Scheme IV: The calulated interval
-    sender_current_time = time.time()
+    sender_current_time = time()
     interval = floor((sender_current_time-T0)/T_delta)
 
     # Scheme IV artificial delay so the message verification will fail later
@@ -110,6 +116,8 @@ def scheme_IV_sender(message, key_chain, i, T0, T_delta, disclosure_lag):
     #     interval = 1
     #     disclosure_lag = 3
 
+    # NOTE: Based on the paper and the RFC this should have another PRF (or hash function) appplied
+    # to the key of the chain as a good measure to prevent cryptographic weakness from key reuse
     hm = hmac.new(msg=message, key=key_chain[interval-disclosure_lag].encode(), digestmod=sha256)
 
     sent_message = (message, hm.digest(), key_chain[interval-disclosure_lag], interval)
@@ -236,8 +244,11 @@ def scheme_III_receiver(received_message, i, verifier_list, delta_t, Arr_Ti, del
 
 def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta, disclosure_lag):
    
+    if i-disclosure_lag < 0:
+        return
+
     message_for_verification = verifier_list[i-disclosure_lag]
-    print(message_for_verification)
+    # print(message_for_verification)
     # prev_message = message_for_verification[:5]
     prev_message = message_for_verification[0]
 
@@ -250,7 +261,7 @@ def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta,
    
     verify_1 = False
    
-    receiver_current_time = time.time()
+    receiver_current_time = time()
     # The following has notation i' in the paper
     max_allowed_interval = floor((receiver_current_time+delta_t-T0)/T_delta)
     
@@ -259,6 +270,10 @@ def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta,
 
     if (sender_interval + disclosure_lag) > max_allowed_interval:
         verify_1 = True
+
+    former_key = message_for_verification[3]
+    current_key = prev_key
+    key_verification(former_key, current_key)
 
     hm_val = hmac.new(msg=prev_message, key=prev_key.encode(), digestmod=sha256)
     # print("New digest {0}".format(hm_val.digest()))
@@ -271,27 +286,27 @@ def scheme_IV_receiver(received_message, i, verifier_list, delta_t, T0, T_delta,
 def sender_actions(key_chain, i, rate, private_seed, T0 , delay, T_delta, disclosure_lag):    
     message = b"crypt"
 
-    # Perform the HMAC operation
-    if i != 0:
-        private_seed = private_seed[:-1]
-        private_seed = private_seed + (i).to_bytes(1, 'big')
-    else:
-        private_seed = private_seed + (i).to_bytes(1, 'big')
+    # Scheme I: using differetn keys - Just increasing the old one by 1 for simplicity
+    # if i != 0:
+    #     private_seed = private_seed[:-1]
+    #     private_seed = private_seed + (i).to_bytes(1, 'big')
+    # else:
+    #     private_seed = private_seed + (i).to_bytes(1, 'big')
 
-    return scheme_I_sender(message=message, private_seed=private_seed, rate=rate, i=i, T0=T0)
+    # return scheme_I_sender(message=message, private_seed=private_seed, rate=rate, i=i, T0=T0)
 
     # return scheme_II_sender(message=message, rate=rate, i=i, T0=T0, key_chain=key_chain)
 
     # return scheme_III_sender(message=message, rate=rate, i=i, T0=T0, delay=delay, key_chain=key_chain)
         
-    # return scheme_IV_sender(message=message, key_chain=key_chain,  i=i, T0=T0, T_delta=T_delta, 
-    #   disclosure_lag=disclosure_lag)
+    return scheme_IV_sender(message=message, key_chain=key_chain,  i=i, T0=T0, T_delta=T_delta, 
+      disclosure_lag=disclosure_lag)
 
 def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_delta, disclosure_lag):
     delta_t = 1
     
-    return scheme_I_receiver(received_message=received_message, i=i, verifier_list=verifier_list,
-        delta_t=delta_t, Arr_Ti=Arr_Ti)
+    # return scheme_I_receiver(received_message=received_message, i=i, verifier_list=verifier_list,
+        # delta_t=delta_t, Arr_Ti=Arr_Ti)
 
     # return scheme_II_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
     #     delta_t=delta_t, Arr_Ti=Arr_Ti,)
@@ -299,50 +314,59 @@ def receiver_actions(received_message, i, verifier_list, Arr_Ti, delay, T0, T_de
     # return scheme_III_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
     #     delta_t=delta_t, Arr_Ti=Arr_Ti, delay=delay)
 
-    # return scheme_IV_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
-    #   delta_t=delta_t, T0=T0, T_delta=T_delta, disclosure_lag=disclosure_lag)
+    return scheme_IV_receiver(received_message=received_message, i=i, verifier_list=verifier_list, 
+      delta_t=delta_t, T0=T0, T_delta=T_delta, disclosure_lag=disclosure_lag)
 
 def main():
     # For the sake of simplicity we will increase the last number by one and append it
     private_seed = b"Hello world"
 
-    key_chain = create_Key_Chain(private_seed)
+    N = 10
 
-    print("Key chain: {0}".format(key_chain))
+    key_chain = create_Key_Chain(private_seed, N)
+
+    # print("Key chain: {0}".format(key_chain))
 
     verifier_list = []
     
     # Scheme I: The timestamp of the first packet from the sender
-    T0 = time.time()
+    T0 = time()
     
     # Packet rate
     r = 1
 
     # Scheme III: The delay parameter set by the sender based on packet rate
     # the maximum tolerable synchronization uncertainty and the maximum tolerable network delay
-    delta_tMax = 1
-    dNMax = 1
+    delta_tMax = 4
+    dNMax = 4
     delay = ceil((delta_tMax+dNMax)*r)
 
     # Scheme IV: The duration of each interval (in ms)
     # NOTE: T_delta must be determined according to the paper
-    T_delta = 3
+    T_delta = 2
     delta_Max = delta_tMax+dNMax
     disclosure_lag = ceil(delta_Max/T_delta)
     # disclosure_lag = 2
 
     # print("disclosure_lag: {0}".format(disclosure_lag))
 
-    for i in range(0,10):
-        print(i)
+    sender_bench_time = []
+    receiver_bench_time = []
 
-        print("=========SENDER=========")
+    for i in range(0,N):
+        # print(i)
+
+        # print("=========SENDER=========")
+        start = perf_counter()
         sent_message = sender_actions(key_chain=key_chain, i=i, rate=r, private_seed=private_seed, T0=T0 , delay=delay, T_delta=T_delta, disclosure_lag=disclosure_lag)         
-        # print(sent_message)        
+        # print(sent_message)
+        stop = perf_counter()
+        sender_bench_time.append(stop-start)
 
         # Now the verifier should store and verify the message based on some next disclosed key
-        print("=========RECEIVER=========")
-        Arr_Ti = time.time() # Just simulate the arrival time
+        # print("=========RECEIVER=========")
+        start = perf_counter()
+        Arr_Ti = time() # Just simulate the arrival time
 
         # NOTE: With the following, the verification for message 1 should now fail
         # if i == 3:
@@ -373,14 +397,22 @@ def main():
                 verifier_list=verifier_list, Arr_Ti=Arr_Ti, delay=delay, T_delta=T_delta, 
                 T0=T0, disclosure_lag=disclosure_lag)
 
+        stop = perf_counter()
+        receiver_bench_time.append(stop-start)
+
         if not verification:
             print("Verification of message {0} failed".format(i-disclosure_lag))
-        else:
-            print("Verification of message {0} achieved".format(i-disclosure_lag))
+        # else:
+        #     print("Verification of message {0} achieved".format(i-disclosure_lag))
 
         #  Just wait for #num second(s) before "sending" the next packet
         # time.sleep(2)
+    
+    sender_avg = sum(sender_bench_time) / len(sender_bench_time)
+    print("Message sender AVG time for {0} messages is {1} sec".format(N-1, sender_avg))
 
+    receiver_avg = sum(receiver_bench_time) / len(receiver_bench_time)
+    print("Message verify time for {0} messages is {1} sec".format(N-1, receiver_avg))
 
 if __name__ == "__main__":
     main()
