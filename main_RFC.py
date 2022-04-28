@@ -70,7 +70,7 @@ def send_message(message, sender_obj, i):
     # print(message_time)
     # interval = floor((message_time - sender_obj.T0) * 1.0/sender_obj.T_int)
     interval = floor((message_time - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int)
-    # print(interval)
+    print(interval)
     # print(sender_obj.d)
 
 
@@ -87,10 +87,18 @@ def send_message(message, sender_obj, i):
     #     disclosed_key_index = interval - sender_obj.d
     #     return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain) - disclosed_key_index], interval)
 
-    hm = hmac.new(msg=message, key=sender_obj.key_chain[interval].encode(), digestmod=sha256)
-
     disclosed_key_index = interval - sender_obj.d
-    return (message, hm.digest(), sender_obj.key_chain[disclosed_key_index], interval)
+    print(disclosed_key_index)
+
+    # if disclosed_key_index == 0:
+    #     hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain)-1].encode(), digestmod=sha256)
+    #     return (message, hm.digest(), None, interval)
+    # else:
+    #     hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain)-interval].encode(), digestmod=sha256)
+    #     return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain)-disclosed_key_index-1], interval)
+
+    hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain) - interval].encode(), digestmod=sha256)
+    return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain) - disclosed_key_index - 1], interval)
 
 
 def boostrap_receiver(last_key, T_int, T0, chain_length, disclosure_delay, sender_interval):
@@ -108,15 +116,15 @@ def boostrap_receiver(last_key, T_int, T0, chain_length, disclosure_delay, sende
 
 def receiver_find_interval(disclosed_key, max_key, disclosed_interval, key_chain_len):
     
-    # temp_key = disclosed_key
-    temp_key = max_key
+    temp_key = disclosed_key
+    # temp_key = max_key
     hash_operations = 0
-
+    
     # TODO: PROBLEM: We should figure out how to start the chain from the latest[N] and work down to the first [0]
-    # while (temp_key != max_key and disclosed_interval + hash_operations < key_chain_len):
-    while (temp_key != disclosed_key and disclosed_interval + hash_operations < key_chain_len):
-        # temp_key = sha256(temp_key.encode()).hexdigest()
+    while (temp_key != max_key and disclosed_interval + hash_operations < key_chain_len):
+    # while (temp_key != disclosed_key and disclosed_interval + hash_operations < key_chain_len):
         temp_key = sha256(temp_key.encode()).hexdigest()
+        # temp_key = sha256(temp_key.encode()).hexdigest()
         hash_operations += 1
 
     if (disclosed_interval + hash_operations >= key_chain_len):
@@ -152,8 +160,9 @@ def main():
     sender_interval = floor((time()* 1000 - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int)
 
     # NOTE: Maybe rename to max_key (for the max interval)
-    last_key = sender_obj.key_chain[sender_interval - sender_obj.d]
-    print(last_key)
+    # last_key = sender_obj.key_chain[sender_interval - sender_obj.d]
+    last_key = sender_obj.key_chain[len(sender_obj.key_chain) - 1]
+    # print(last_key)
 
     receiver_obj = boostrap_receiver(last_key=last_key, T_int=sender_obj.T_int, T0=sender_obj.T0,
       chain_length=N, disclosure_delay=sender_obj.d, sender_interval=sender_interval)
