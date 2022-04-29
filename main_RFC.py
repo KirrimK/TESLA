@@ -1,3 +1,4 @@
+import dis
 from hashlib import blake2b, blake2s, sha256
 import hmac
 from time import perf_counter, time, sleep
@@ -12,7 +13,7 @@ class Sender:
         self.d = disclosure_delay
 
 class Receiver:
-    def __init__(self, time_difference, T0, T_int, disclosure_delay, sender_interval, key_chain_len, max_key):
+    def __init__(self, time_difference, T0, T_int, disclosure_delay, sender_interval, key_chain_len, max_key, last_key_index):
         self.D_t = time_difference
         self.K_0 = max_key
         self.T0 = T0
@@ -20,7 +21,9 @@ class Receiver:
         self.d = disclosure_delay
         self.sender_interval = sender_interval
         self.key_chain_len = key_chain_len
+        self.last_key_index = last_key_index
         self.buffer = []
+        self.received_keys = []
 
 # def create_key_chain(private_seed, N, interval):
 def create_key_chain(private_seed, N):
@@ -70,7 +73,7 @@ def send_message(message, sender_obj, i):
     # print(message_time)
     # interval = floor((message_time - sender_obj.T0) * 1.0/sender_obj.T_int)
     interval = floor((message_time - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int)
-    print(interval)
+    # print(interval)
     # print(sender_obj.d)
 
 
@@ -88,7 +91,7 @@ def send_message(message, sender_obj, i):
     #     return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain) - disclosed_key_index], interval)
 
     disclosed_key_index = interval - sender_obj.d
-    print(disclosed_key_index)
+    # print(disclosed_key_index)
 
     # if disclosed_key_index == 0:
     #     hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain)-1].encode(), digestmod=sha256)
@@ -111,8 +114,10 @@ def boostrap_receiver(last_key, T_int, T0, chain_length, disclosure_delay, sende
 
     disclosure_delay = disclosure_delay
 
+    last_key_index = sender_interval - sender_interval
+
     return Receiver(time_difference=D_t, T0=T0, T_int=T_int, disclosure_delay=disclosure_delay, 
-        sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0)
+        sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
 def receiver_find_interval(disclosed_key, max_key, disclosed_interval, key_chain_len):
     
@@ -132,9 +137,20 @@ def receiver_find_interval(disclosed_key, max_key, disclosed_interval, key_chain
     
     return disclosed_interval + hash_operations
 
+def key_chain_verification(disclosed_key, max_key, key_chain_len):
+    temp_key = disclosed_key
+    hash_operations = 0
+    while (temp_key != max_key):
+        temp_key = sha256(temp_key.encode()).hexdigest()
+        hash_operations += 1
+        if (hash_operations == key_chain_len and temp_key != max_key):
+            return False
+    
+    return True
+
 def receive_message(packet, receiver_obj):
 
-    message_interval = receiver_find_interval(disclosed_key=packet[2], max_key=receiver_obj.K_0, 
+    packet_interval = receiver_find_interval(disclosed_key=packet[2], max_key=receiver_obj.K_0, 
         disclosed_interval=packet[3], key_chain_len=receiver_obj.key_chain_len)
     
     sender_max = time() * 1000 + receiver_obj.D_t
@@ -143,11 +159,43 @@ def receive_message(packet, receiver_obj):
     estimated_sender_interval = receiver_obj.sender_interval + elapsed_intervals
 
     # If the packet is not safe, print a message(or discard it)
-    # if not (estimated_sender_interval < message_interval + receiver_obj.d):
-    if estimated_sender_interval > message_interval + receiver_obj.d:
+    # if not (estimated_sender_interval < packet_interval + receiver_obj.d):
+    if estimated_sender_interval > packet_interval + receiver_obj.d:
         print("Packet at interval {0} is not safe".format(receiver_obj.sender_interval))
 
     # Save the described triplet in the receiver's buffer
+    receiver_obj.buffer.append((packet_interval, packet[0], packet[1]))
+
+    disclosed_interval = packet_interval - receiver_obj.d
+
+    if disclosed_interval > receiver_obj.last_key_index:
+        receiver_obj.received_keys = packet[2]
+        receiver_obj.last_key_index = disclosed_interval
+
+        
+        verication_condition_1 = key_chain_verification(disclosed_key=packet[2], max_key=receiver_obj.K_0, 
+            key_chain_len=receiver_obj.key_chain_len)
+        
+        # NOTE: This is a test condition
+        # print(key_chain_verification(disclosed_key=packet[2], max_key="64ec88ca00b268e5ba1a35678a1b5316d212f4f366b2b77232534a8aeca37f3c", key_chain_len=receiver_obj.key_chain_len))
+
+        values_for_authentication = list(filter(lambda x : x[0] == disclosed_interval, receiver_obj.buffer))
+
+        verication_condition_2 = False
+        for value in values_for_authentication:
+            prev_hmac = value[2]
+            current_hmac = hmac.new(msg=value[1], key=packet[2].encode(), digestmod=sha256)
+
+            if(not hmac.compare_digest(current_hmac.digest(), prev_hmac)):
+                verication_condition_2 = False
+            else:
+                verication_condition_2 = True
+
+        if verication_condition_1 and verication_condition_2:
+            print("VERIFICATION SUCCEEDED")
+        else:
+            print("VERIFICATION FAILED")
+
 
 def main():
     # TODO: Should be random
