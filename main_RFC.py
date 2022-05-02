@@ -46,7 +46,7 @@ def create_key_chain(private_seed, N):
 def sender_setup(private_seed, key_chain_length):
     n = 3 # Send a packet every n msec
     m = 4 # The upper bound on the network delay
-    T_int = max(n, m) * 1000
+    T_int = max(n, m) * 1000 # Measured in seconds
 
     intervals = []
     # for i in range (1, key_chain_length + 1):
@@ -56,9 +56,9 @@ def sender_setup(private_seed, key_chain_length):
     print(key_chain)
 
     sender_initial_time = time() * 1000
-    # TODO: Need to figure out disclosure delay
+    # TODO: Do we need to perform the check that disclosure_delay > 1 ?
     RTT = 2
-    disclosure_delay = (ceil(RTT/T_int) + 1)
+    disclosure_delay = (ceil(RTT/T_int) + 1) # Measured in time intervals. This SHOULD NOT BE == 1 i.e. delay of one interval (see RFC 3.6)
 
     # NOTE: Maybe better shifted start time?
     start_time = (time() * 1000) - disclosure_delay * T_int
@@ -100,6 +100,7 @@ def send_message(message, sender_obj, i):
     #     hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain)-interval].encode(), digestmod=sha256)
     #     return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain)-disclosed_key_index-1], interval)
 
+    # NOTE: Baed on the paper and the RFC the key for the MAC should be derived from the PRF (hash) of the key from the chain
     hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain) - interval].encode(), digestmod=sha256)
     return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain) - disclosed_key_index - 1], interval)
 
@@ -119,14 +120,14 @@ def boostrap_receiver(last_key, T_int, T0, chain_length, disclosure_delay, sende
     return Receiver(time_difference=D_t, T0=T0, T_int=T_int, disclosure_delay=disclosure_delay, 
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
-def receiver_find_interval(disclosed_key, max_key, disclosed_interval, key_chain_len):
+def receiver_find_interval(disclosed_key, last_key, disclosed_interval, key_chain_len):
     
     temp_key = disclosed_key
     # temp_key = max_key
     hash_operations = 0
     
-    # TODO: PROBLEM: We should figure out how to start the chain from the latest[N] and work down to the first [0]
-    while (temp_key != max_key and disclosed_interval + hash_operations < key_chain_len):
+    # NOTE: Still not sure if we start from K_N and go down to K_0 or the opossite.
+    while (temp_key != last_key and disclosed_interval + hash_operations < key_chain_len):
     # while (temp_key != disclosed_key and disclosed_interval + hash_operations < key_chain_len):
         temp_key = sha256(temp_key.encode()).hexdigest()
         # temp_key = sha256(temp_key.encode()).hexdigest()
@@ -137,20 +138,21 @@ def receiver_find_interval(disclosed_key, max_key, disclosed_interval, key_chain
     
     return disclosed_interval + hash_operations
 
-def key_chain_verification(disclosed_key, max_key, key_chain_len):
+def key_chain_verification(disclosed_key, last_key, key_chain_len):
     temp_key = disclosed_key
     hash_operations = 0
-    while (temp_key != max_key):
+    while (temp_key != last_key):
         temp_key = sha256(temp_key.encode()).hexdigest()
         hash_operations += 1
-        if (hash_operations == key_chain_len and temp_key != max_key):
+        if (hash_operations == key_chain_len and temp_key != last_key):
             return False
     
     return True
 
 def receive_message(packet, receiver_obj):
 
-    packet_interval = receiver_find_interval(disclosed_key=packet[2], max_key=receiver_obj.K_0, 
+    # We need to determine in which interval the received packet is to preform the safety test later
+    packet_interval = receiver_find_interval(disclosed_key=packet[2], last_key=receiver_obj.K_0, 
         disclosed_interval=packet[3], key_chain_len=receiver_obj.key_chain_len)
     
     sender_max = time() * 1000 + receiver_obj.D_t
@@ -159,7 +161,7 @@ def receive_message(packet, receiver_obj):
     estimated_sender_interval = receiver_obj.sender_interval + elapsed_intervals
 
     # If the packet is not safe, print a message(or discard it)
-    # if not (estimated_sender_interval < packet_interval + receiver_obj.d):
+    # NOTE: Not sure if we should use d or D_t
     if estimated_sender_interval > packet_interval + receiver_obj.d:
         print("Packet at interval {0} is not safe".format(receiver_obj.sender_interval))
 
@@ -168,19 +170,21 @@ def receive_message(packet, receiver_obj):
 
     disclosed_interval = packet_interval - receiver_obj.d
 
+    # Test if the has already been disclosed 
     if disclosed_interval > receiver_obj.last_key_index:
         receiver_obj.received_keys = packet[2]
         receiver_obj.last_key_index = disclosed_interval
 
         
-        verication_condition_1 = key_chain_verification(disclosed_key=packet[2], max_key=receiver_obj.K_0, 
+        verication_condition_1 = key_chain_verification(disclosed_key=packet[2], last_key=receiver_obj.K_0, 
             key_chain_len=receiver_obj.key_chain_len)
         
         # NOTE: This is a test condition
-        # print(key_chain_verification(disclosed_key=packet[2], max_key="64ec88ca00b268e5ba1a35678a1b5316d212f4f366b2b77232534a8aeca37f3c", key_chain_len=receiver_obj.key_chain_len))
+        # print(key_chain_verification(disclosed_key=packet[2], last_key="64ec88ca00b268e5ba1a35678a1b5316d212f4f366b2b77232534a8aeca37f3c", key_chain_len=receiver_obj.key_chain_len))
 
         values_for_authentication = list(filter(lambda x : x[0] == disclosed_interval, receiver_obj.buffer))
 
+        # TODO: If packets are authenticated, remove them from the buffer
         verication_condition_2 = False
         for value in values_for_authentication:
             prev_hmac = value[2]
