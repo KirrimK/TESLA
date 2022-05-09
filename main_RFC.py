@@ -221,11 +221,13 @@ def main():
 
     for i in range(0, N):
         # Test condition to see if it moves to the next interval   
-        if i == 2:
-            sleep(4)
+        # if i == 2:
+        #     sleep(4)
 
-        if i == 5:
-            sleep(4)
+        # if i == 5:
+        #     sleep(4)
+
+        # TODO: Create and adversarial case where we send a message with an already disclosed key
 
         packet = send_message(message=message, sender_obj=sender_obj, i=i)
         print(packet)
