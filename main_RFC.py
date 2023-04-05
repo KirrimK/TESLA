@@ -219,7 +219,7 @@ def main():
     receiver_obj = boostrap_receiver(last_key=last_key, T_int=sender_obj.T_int, T0=sender_obj.T0,
       chain_length=N, disclosure_delay=sender_obj.d, sender_interval=sender_interval)
 
-    for i in range(0, N):
+    for a in range(0, N):
         # Test condition to see if it moves to the next interval   
         # if i == 2:
         #     sleep(4)
@@ -229,8 +229,9 @@ def main():
 
         # TODO: Create and adversarial case where we send a message with an already disclosed key
 
-        packet = send_message(message=message, sender_obj=sender_obj, i=i)
+        packet = send_message(message=message, sender_obj=sender_obj, i=a)
         print(packet)
+        print(len(packet[0])+len(packet[1])+len(packet[2].encode("ascii"))+len((packet[3].to_bytes(4, byteorder='big'))))
 
         receive_message(packet=packet, receiver_obj=receiver_obj)
 
