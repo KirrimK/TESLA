@@ -7,7 +7,7 @@ from math import ceil, floor
 class Sender:
     def __init__(self, initial_time: float, key_chain: list[str], T_int: int, intervals: list[float], disclosure_delay: int):
         self.T0: float = initial_time
-        self.key_chain: list[str] = key_chain
+        self.key_chain: list[str] = key_chain #[K_n,....,K_0] où K_(n-1) = sha256(K_n)
         self.T_int: int = T_int
         self.intervals: list[float] = intervals
         self.d: int = disclosure_delay
@@ -132,10 +132,14 @@ def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, d
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
 def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval: int, key_chain_len: int):
-    
+    """
+    disclosed_key == k_(i-d), last_key == K_0,  disclosed_interval == i, 
+    Permet de retrouver la valeur de 
+    """
+
     temp_key: str = disclosed_key
     # temp_key = max_key
-    hash_operations: int = 0
+    hash_operations: int = 0 # représente le nombre de derivation restante pour passer de K_(i-d) a K_0
     
     # NOTE: Still not sure if we start from K_N and go down to K_0 or the opossite.
     while (temp_key != last_key and disclosed_interval + hash_operations < key_chain_len):
@@ -145,7 +149,7 @@ def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval
     if (disclosed_interval + hash_operations >= key_chain_len):
         print("ERROR: INVALID KEY")
     
-    return disclosed_interval + hash_operations
+    return disclosed_interval + hash_operations # ca donne i + (N - (i - d)() = N-d?
 
 def key_chain_verification(disclosed_key: str, last_key: str, key_chain_len: int):
     temp_key = disclosed_key
