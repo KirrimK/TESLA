@@ -1,35 +1,35 @@
-import dis
-from hashlib import blake2b, blake2s, sha256
+#import dis
+from hashlib import sha256 # blake2b, blake2s
 import hmac
-from time import perf_counter, time, sleep
+from time import time # perf_counter, sleep
 from math import ceil, floor
 
 class Sender:
-    def __init__(self, initial_time, key_chain, T_int, intervals, disclosure_delay):
-        self.T0 = initial_time
-        self.key_chain = key_chain
-        self.T_int = T_int
-        self.intervals = intervals
-        self.d = disclosure_delay
+    def __init__(self, initial_time: float, key_chain: list[str], T_int: int, intervals: list[float], disclosure_delay: int):
+        self.T0: float = initial_time
+        self.key_chain: list[str] = key_chain
+        self.T_int: int = T_int
+        self.intervals: list[float] = intervals
+        self.d: int = disclosure_delay
 
 class Receiver:
-    def __init__(self, time_difference, T0, T_int, disclosure_delay, sender_interval, key_chain_len, max_key, last_key_index):
-        self.D_t = time_difference
-        self.K_0 = max_key
-        self.T0 = T0
-        self.T_int = T_int
-        self.d = disclosure_delay
-        self.sender_interval = sender_interval
-        self.key_chain_len = key_chain_len
-        self.last_key_index = last_key_index
-        self.buffer = []
-        self.received_keys = []
+    def __init__(self, time_difference: float, T0: float, T_int: int, disclosure_delay: int, sender_interval: int, key_chain_len: int, max_key: str, last_key_index: int):
+        self.D_t: float = time_difference
+        self.K_0: str = max_key
+        self.T0: float = T0
+        self.T_int: int = T_int
+        self.d: int = disclosure_delay
+        self.sender_interval: int = sender_interval
+        self.key_chain_len: int = key_chain_len
+        self.last_key_index: int = last_key_index
+        self.buffer: list[tuple[int, bytes, bytes]] = []
+        self.received_keys: list[str] = []
 
 # def create_key_chain(private_seed, N, interval):
-def create_key_chain(private_seed, N):
-    key_chain = []
+def create_key_chain(private_seed: bytes, N: int):
+    key_chain: list[str] = []
 
-    for i in range(0,N):
+    for i in range(0, N):
         if i == 0:
             h = sha256()
             h.update(private_seed)
@@ -43,12 +43,12 @@ def create_key_chain(private_seed, N):
 
     return key_chain
 
-def sender_setup(private_seed, key_chain_length):
+def sender_setup(private_seed: bytes, key_chain_length: int):
     n = 3 # Send a packet every n msec
     m = 4 # The upper bound on the network delay
     T_int = max(n, m) * 1000 # Measured in seconds, temps d'un interval
 
-    intervals = []
+    intervals: list[float] = []
     # for i in range (1, key_chain_length + 1):
     #     intervals.append(T_int*i)
 
@@ -72,8 +72,7 @@ def sender_setup(private_seed, key_chain_length):
     
     return Sender(initial_time=sender_initial_time, key_chain=key_chain, T_int=T_int, intervals=intervals, disclosure_delay=disclosure_delay)
 
-last_interval_index = 0 
-def send_message(message, sender_obj, i):
+def send_message(message: bytes, sender_obj: Sender, i: int):
     message_time  = time() * 1000
     # print(message_time)
     # interval = floor((message_time - sender_obj.T0) * 1.0/sender_obj.T_int)
@@ -114,30 +113,29 @@ def send_message(message, sender_obj, i):
     ( message, hmac( message, k_i), k_(i-d), i)
     """
 
-
-def boostrap_receiver(last_key, T_int, T0, chain_length, disclosure_delay, sender_interval):
+def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, disclosure_delay: int, sender_interval: int):
     D_t = 100 # lag of receiver's clock with respect to the clock of the sender
     """
     La partie syncro est pas faite
     """
     K_0 = last_key
-    T0 = T0
+    T_zero = T0
     T_int = T_int
 
     sender_interval = sender_interval
 
     disclosure_delay = disclosure_delay
 
-    last_key_index = sender_interval - sender_interval
+    last_key_index: int = sender_interval - sender_interval
 
-    return Receiver(time_difference=D_t, T0=T0, T_int=T_int, disclosure_delay=disclosure_delay, 
+    return Receiver(time_difference=D_t, T0=T_zero, T_int=T_int, disclosure_delay=disclosure_delay, 
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
-def receiver_find_interval(disclosed_key, last_key, disclosed_interval, key_chain_len):
+def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval: int, key_chain_len: int):
     
-    temp_key = disclosed_key
+    temp_key: str = disclosed_key
     # temp_key = max_key
-    hash_operations = 0
+    hash_operations: int = 0
     
     # NOTE: Still not sure if we start from K_N and go down to K_0 or the opossite.
     while (temp_key != last_key and disclosed_interval + hash_operations < key_chain_len):
@@ -149,7 +147,7 @@ def receiver_find_interval(disclosed_key, last_key, disclosed_interval, key_chai
     
     return disclosed_interval + hash_operations
 
-def key_chain_verification(disclosed_key, last_key, key_chain_len):
+def key_chain_verification(disclosed_key: str, last_key: str, key_chain_len: int):
     temp_key = disclosed_key
     hash_operations = 0
     while (temp_key != last_key):
@@ -160,13 +158,13 @@ def key_chain_verification(disclosed_key, last_key, key_chain_len):
     
     return True
 
-def receive_message(packet, receiver_obj):
+def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receiver):
 
     # We need to determine in which interval the received packet is to preform the safety test later
     packet_interval = receiver_find_interval(disclosed_key=packet[2], last_key=receiver_obj.K_0, 
         disclosed_interval=packet[3], key_chain_len=receiver_obj.key_chain_len)
     
-    sender_max = time() * 1000 + receiver_obj.D_t
+    sender_max: float = time() * 1000 + receiver_obj.D_t
     elapsed_intervals = floor((sender_max - receiver_obj.T0) * 1.0 / receiver_obj.T_int)
 
     estimated_sender_interval = receiver_obj.sender_interval + elapsed_intervals
@@ -179,11 +177,11 @@ def receive_message(packet, receiver_obj):
     # Save the described triplet in the receiver's buffer
     receiver_obj.buffer.append((packet_interval, packet[0], packet[1]))
 
-    disclosed_interval = packet_interval - receiver_obj.d
+    disclosed_interval: int = packet_interval - receiver_obj.d
 
     # Test if the has already been disclosed 
     if disclosed_interval > receiver_obj.last_key_index:
-        receiver_obj.received_keys = packet[2]
+        receiver_obj.received_keys.append(packet[2])
         receiver_obj.last_key_index = disclosed_interval
 
         
@@ -198,7 +196,7 @@ def receive_message(packet, receiver_obj):
         # TODO: If packets are authenticated, remove them from the buffer
         verication_condition_2 = False
         for value in values_for_authentication:
-            prev_hmac = value[2]
+            prev_hmac: bytes = value[2]
             current_hmac = hmac.new(msg=value[1], key=packet[2].encode(), digestmod=sha256)
 
             if(not hmac.compare_digest(current_hmac.digest(), prev_hmac)):
