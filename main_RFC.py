@@ -46,19 +46,24 @@ def create_key_chain(private_seed, N):
 def sender_setup(private_seed, key_chain_length):
     n = 3 # Send a packet every n msec
     m = 4 # The upper bound on the network delay
-    T_int = max(n, m) * 1000 # Measured in seconds
+    T_int = max(n, m) * 1000 # Measured in seconds, temps d'un interval
 
     intervals = []
     # for i in range (1, key_chain_length + 1):
     #     intervals.append(T_int*i)
+
+    """
+    C'est fait après enfoction de la key_chain et de start_time
+    """
 
     key_chain = create_key_chain(private_seed=private_seed, N=key_chain_length)
     print(key_chain)
 
     sender_initial_time = time() * 1000
     # TODO: Do we need to perform the check that disclosure_delay > 1 ?
-    RTT = 2
+    RTT = 2 #round trip time, choisit arbitrairement ici
     disclosure_delay = (ceil(RTT/T_int) + 1) # Measured in time intervals. This SHOULD NOT BE == 1 i.e. delay of one interval (see RFC 3.6)
+    """ c'est le d partie 2.6 du papier"""
 
     # NOTE: Maybe better shifted start time?
     start_time = (time() * 1000) - disclosure_delay * T_int
@@ -72,7 +77,7 @@ def send_message(message, sender_obj, i):
     message_time  = time() * 1000
     # print(message_time)
     # interval = floor((message_time - sender_obj.T0) * 1.0/sender_obj.T_int)
-    interval = floor((message_time - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int)
+    interval = floor((message_time - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int) 
     # print(interval)
     # print(sender_obj.d)
 
@@ -104,9 +109,17 @@ def send_message(message, sender_obj, i):
     hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain) - interval].encode(), digestmod=sha256)
     return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain) - disclosed_key_index - 1], interval)
 
+    """
+    un packet est de la forme
+    ( message, hmac( message, k_i), k_(i-d), i)
+    """
+
 
 def boostrap_receiver(last_key, T_int, T0, chain_length, disclosure_delay, sender_interval):
     D_t = 100 # lag of receiver's clock with respect to the clock of the sender
+    """
+    La partie syncro est pas faite
+    """
     K_0 = last_key
     T0 = T0
     T_int = T_int
@@ -128,9 +141,7 @@ def receiver_find_interval(disclosed_key, last_key, disclosed_interval, key_chai
     
     # NOTE: Still not sure if we start from K_N and go down to K_0 or the opossite.
     while (temp_key != last_key and disclosed_interval + hash_operations < key_chain_len):
-    # while (temp_key != disclosed_key and disclosed_interval + hash_operations < key_chain_len):
         temp_key = sha256(temp_key.encode()).hexdigest()
-        # temp_key = sha256(temp_key.encode()).hexdigest()
         hash_operations += 1
 
     if (disclosed_interval + hash_operations >= key_chain_len):
