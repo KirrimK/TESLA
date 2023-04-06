@@ -6,22 +6,22 @@ from math import ceil, floor
 
 class Sender:
     def __init__(self, initial_time: float, key_chain: list[str], T_int: int, intervals: list[float], disclosure_delay: int):
-        self.T0: float = initial_time
+        self.T0: float = initial_time #start time of sender
         self.key_chain: list[str] = key_chain #[K_n,....,K_0] où K_(n-1) = sha256(K_n)
-        self.T_int: int = T_int
-        self.intervals: list[float] = intervals
-        self.d: int = disclosure_delay
+        self.T_int: int = T_int #time of an interval in seconds
+        self.intervals: list[float] = intervals #list of inferior bound of each interval [T0, T0+T_int, ....]
+        self.d: int = disclosure_delay #nb intervals to wait to get the key to authentify a certain message in a certain time interval
 
 class Receiver:
     def __init__(self, time_difference: float, T0: float, T_int: int, disclosure_delay: int, sender_interval: int, key_chain_len: int, max_key: str, last_key_index: int):
-        self.D_t: float = time_difference
-        self.K_0: str = max_key
-        self.T0: float = T0
-        self.T_int: int = T_int
-        self.d: int = disclosure_delay
-        self.sender_interval: int = sender_interval
+        self.D_t: float = time_difference # represent max time delay for a message sent by S to reach R ?
+        self.K_0: str = max_key #K_0 cf Sender
+        self.T0: float = T0 #cf sender
+        self.T_int: int = T_int #cf sender
+        self.d: int = disclosure_delay #nb intervals to wait to get the key to authentify a certain message in a certain time interval
+        self.sender_interval: int = sender_interval #interval dans lequel le sender se situe actuellement
         self.key_chain_len: int = key_chain_len
-        self.last_key_index: int = last_key_index
+        self.last_key_index: int = last_key_index # position dans key_chain de la dernière clé dévoilée par le sender 
         self.buffer: list[tuple[int, bytes, bytes]] = []
         self.received_keys: list[str] = []
 
@@ -126,15 +126,15 @@ def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, d
 
     disclosure_delay = disclosure_delay
 
-    last_key_index: int = sender_interval - sender_interval
+    last_key_index: int = sender_interval - sender_interval #On initialise à zéro
 
     return Receiver(time_difference=D_t, T0=T_zero, T_int=T_int, disclosure_delay=disclosure_delay, 
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
 def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval: int, key_chain_len: int):
     """
-    disclosed_key == k_(i-d), last_key == K_0,  disclosed_interval == i, 
-    Permet de retrouver la valeur de 
+    disclosed_key == k_(n-i+d), last_key == K_0,  disclosed_interval == i aka l'interval dans lequel diclosed_key a été dévoilée, 
+    Permet de retrouver la valeur de l'intervalle dans lequel à été envoyé le message? donc i?
     """
 
     temp_key: str = disclosed_key
@@ -144,7 +144,7 @@ def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval
     # NOTE: Still not sure if we start from K_N and go down to K_0 or the opossite.
     while (temp_key != last_key and disclosed_interval + hash_operations < key_chain_len):
         temp_key = sha256(temp_key.encode()).hexdigest()
-        hash_operations += 1
+        hash_operations += 1 # a la find on a hash_operatuions  = N-(i-d)
 
     if (disclosed_interval + hash_operations >= key_chain_len):
         print("ERROR: INVALID KEY")
@@ -175,7 +175,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
 
     # If the packet is not safe, print a message(or discard it)
     # NOTE: Not sure if we should use d or D_t
-    if estimated_sender_interval > packet_interval + receiver_obj.d:
+    if estimated_sender_interval > packet_interval + receiver_obj.d: #cf 2.6 i + d > i'
         print("Packet at interval {0} is not safe".format(receiver_obj.sender_interval))
 
     # Save the described triplet in the receiver's buffer
@@ -222,7 +222,7 @@ def main():
 
     sender_obj = sender_setup(private_seed=private_seed, key_chain_length=N)
 
-    sender_interval = floor((time()* 1000 - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int)
+    sender_interval = floor((time()* 1000 - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int) #interval dans lequel le sender se situe actuellement
 
     # NOTE: Maybe rename to max_key (for the max interval)
     # last_key = sender_obj.key_chain[sender_interval - sender_obj.d]
