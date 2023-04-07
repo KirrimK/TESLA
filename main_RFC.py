@@ -110,7 +110,7 @@ def send_message(message: bytes, sender_obj: Sender, i: int):
 
     """
     un packet est de la forme
-    ( message, hmac( message, k_i), k_(i-d), i)
+    ( message, hmac( message, k_i), kc_(N-1-(i-d) = K_(i+d) ), i)
     """
 
 def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, disclosure_delay: int, sender_interval: int):
@@ -133,23 +133,23 @@ def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, d
 
 def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval: int, key_chain_len: int):
     """
-    disclosed_key == k_(n-i+d), last_key == K_0,  disclosed_interval == i aka l'interval dans lequel diclosed_key a été dévoilée, 
-    Permet de retrouver la valeur de l'intervalle dans lequel à été envoyé le message? donc i?
+    disclosed_key == k_(i+d), last_key == K_0,  disclosed_interval == i aka l'interval dans lequel diclosed_key a été dévoilée, 
+    Permet de retrouver la valeur de l'interval dans lequel à été envoyé le message donc i pour eviter de se fier au contenu du message
     """
 
     temp_key: str = disclosed_key
     # temp_key = max_key
-    hash_operations: int = 0 # représente le nombre de derivation restante pour passer de K_(i-d) a K_0
+    hash_operations: int = 0 # représente le nombre de derivation restante pour passer de K_(n-i+d) a K_0
     
     # NOTE: Still not sure if we start from K_N and go down to K_0 or the opossite.
     while (temp_key != last_key and disclosed_interval + hash_operations < key_chain_len):
         temp_key = sha256(temp_key.encode()).hexdigest()
-        hash_operations += 1 # a la find on a hash_operatuions  = N-(i-d)
+        hash_operations += 1 # a la find on a hash_operatuions  = n-1-(i+d)
 
     if (disclosed_interval + hash_operations >= key_chain_len):
         print("ERROR: INVALID KEY")
     
-    return disclosed_interval + hash_operations # ca donne i + (N - (i - d)() = N-d?
+    return disclosed_interval + hash_operations 
 
 def key_chain_verification(disclosed_key: str, last_key: str, key_chain_len: int):
     temp_key = disclosed_key
