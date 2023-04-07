@@ -149,7 +149,7 @@ def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval
     if (disclosed_interval + hash_operations >= key_chain_len):
         print("ERROR: INVALID KEY")
     
-    return disclosed_interval + hash_operations 
+    return disclosed_interval + hash_operations # i+n-1-i-d=n-1-d
 
 def key_chain_verification(disclosed_key: str, last_key: str, key_chain_len: int):
     temp_key = disclosed_key
