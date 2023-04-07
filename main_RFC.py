@@ -106,7 +106,7 @@ def send_message(message: bytes, sender_obj: Sender, i: int):
 
     # NOTE: Baed on the paper and the RFC the key for the MAC should be derived from the PRF (hash) of the key from the chain
     hm = hmac.new(msg=message, key=sender_obj.key_chain[len(sender_obj.key_chain) - interval].encode(), digestmod=sha256)
-    return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain) - disclosed_key_index - 1], interval)
+    return (message, hm.digest(), sender_obj.key_chain[len(sender_obj.key_chain) - disclosed_key_index - 1], disclosed_key_index)
 
     """
     un packet est de la forme
@@ -131,7 +131,7 @@ def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, d
     return Receiver(time_difference=D_t, T0=T_zero, T_int=T_int, disclosure_delay=disclosure_delay, 
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
-def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval: int, key_chain_len: int):
+def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval: int, key_chain_len: int, disclosure_delay: int):
     """
     disclosed_key == k_(i+d), last_key == K_0,  disclosed_interval == i aka l'interval dans lequel diclosed_key a été dévoilée, 
     Permet de retrouver la valeur de l'interval dans lequel à été envoyé le message donc i pour eviter de se fier au contenu du message
@@ -147,9 +147,9 @@ def receiver_find_interval(disclosed_key: str, last_key: str, disclosed_interval
         hash_operations += 1 # a la find on a hash_operatuions  = n-1-(i+d)
 
     if (disclosed_interval + hash_operations >= key_chain_len):
-        print("ERROR: INVALID KEY")
+        print("ERROR: INVALID KEY OR SOMETHING IS FISHY")
     
-    return disclosed_interval + hash_operations # i+n-1-i-d=n-1-d
+    return key_chain_len - 1 - hash_operations - disclosure_delay
 
 def key_chain_verification(disclosed_key: str, last_key: str, key_chain_len: int):
     temp_key = disclosed_key
@@ -166,7 +166,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
 
     # We need to determine in which interval the received packet is to preform the safety test later
     packet_interval = receiver_find_interval(disclosed_key=packet[2], last_key=receiver_obj.K_0, 
-        disclosed_interval=packet[3], key_chain_len=receiver_obj.key_chain_len)
+                                             disclosed_interval=packet[3], key_chain_len=receiver_obj.key_chain_len, disclosure_delay = receiver_obj.d)
     
     sender_max: float = time() * 1000 + receiver_obj.D_t
     elapsed_intervals = floor((sender_max - receiver_obj.T0) * 1.0 / receiver_obj.T_int)
