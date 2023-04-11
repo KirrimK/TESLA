@@ -43,9 +43,9 @@ def create_key_chain(private_seed: bytes, N: int):
 
     return key_chain
 
-def sender_setup(private_seed: bytes, key_chain_length: int):
-    n = 3 # Send a packet every n msec
-    m = 4 # The upper bound on the network delay
+def sender_setup(private_seed: bytes, key_chain_length: int, rate, upper_bound_network_delay):
+    n = rate # Send a packet every n msec
+    m = upper_bound_network_delay # The upper bound on the network delay
     T_int = max(n, m) * 1000 # Measured in seconds, temps d'un interval
 
     intervals: list[float] = []
@@ -113,8 +113,7 @@ def send_message(message: bytes, sender_obj: Sender, i: int):
     ( message, hmac( message, k_i), kc_(N-1-(i-d) = K_(i+d) ), i)
     """
 
-def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, disclosure_delay: int, sender_interval: int):
-    D_t = 100 # lag of receiver's clock with respect to the clock of the sender
+def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, disclosure_delay: int, sender_interval: int, D_t: float):
     """
     La partie syncro est pas faite
     """
@@ -220,7 +219,7 @@ def main():
     N = 10
     message = b"crypt"
 
-    sender_obj = sender_setup(private_seed=private_seed, key_chain_length=N)
+    sender_obj = sender_setup(private_seed=private_seed, key_chain_length=N, rate=3, upper_bound_network_delay=4)
 
     sender_interval = floor((time()* 1000 - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int) #interval dans lequel le sender se situe actuellement
 
@@ -228,9 +227,9 @@ def main():
     # last_key = sender_obj.key_chain[sender_interval - sender_obj.d]
     last_key = sender_obj.key_chain[len(sender_obj.key_chain) - 1]
     # print(last_key)
-
+    D_t = 100
     receiver_obj = boostrap_receiver(last_key=last_key, T_int=sender_obj.T_int, T0=sender_obj.T0,
-      chain_length=N, disclosure_delay=sender_obj.d, sender_interval=sender_interval)
+      chain_length=N, disclosure_delay=sender_obj.d, sender_interval=sender_interval, D_t = D_t)
 
     for a in range(0, N):
         # Test condition to see if it moves to the next interval   
