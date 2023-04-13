@@ -217,7 +217,7 @@ def main():
     # TODO: Should be random
     private_seed = b"Hello world"
     N = 10
-    message = b"crypt"
+    message = b"crypthjkhkjhjhkjkjhgkhh"
 
     sender_obj = sender_setup(private_seed=private_seed, key_chain_length=N, rate=3, upper_bound_network_delay=4)
 
@@ -243,8 +243,9 @@ def main():
 
         packet = send_message(message=message, sender_obj=sender_obj, i=a)
         print(packet)
-        print(len(packet[0])+len(packet[1])+len(packet[2].encode("ascii"))+len((packet[3].to_bytes(4, byteorder='big'))))
-
+        print(len(packet[1])+len(packet[2].encode("ascii"))+len((packet[3].to_bytes(4, byteorder='big'))))
+        print(type(packet[0]), type(packet[1]), type(packet[2]), type(packet[3]) )
+        print(len(packet[0]), len(packet[1]), len(packet[2]), len(packet[3].to_bytes(4, byteorder='big')) )
         receive_message(packet=packet, receiver_obj=receiver_obj)
 
     
