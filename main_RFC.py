@@ -24,6 +24,9 @@ class Receiver:
         self.last_key_index: int = last_key_index # position dans key_chain de la dernière clé dévoilée par le sender 
         self.buffer: list[tuple[int, bytes, bytes]] = []
         self.received_keys: list[str] = []
+    
+    def __str__(self):
+        return self.__dict__
 
 # def create_key_chain(private_seed, N, interval):
 def create_key_chain(private_seed: bytes, N: int):
