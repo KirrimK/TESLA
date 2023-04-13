@@ -25,9 +25,6 @@ class Receiver:
         self.buffer: list[tuple[int, bytes, bytes]] = []
         self.received_keys: list[str] = []
     
-    def __str__(self):
-        return self.__dict__
-
 # def create_key_chain(private_seed, N, interval):
 def create_key_chain(private_seed: bytes, N: int):
     key_chain: list[str] = []
