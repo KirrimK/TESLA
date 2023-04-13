@@ -57,7 +57,7 @@ def sender_setup(private_seed: bytes, key_chain_length: int, rate, upper_bound_n
     """
 
     key_chain = create_key_chain(private_seed=private_seed, N=key_chain_length)
-    print(key_chain)
+    #print(key_chain)
 
     sender_initial_time = time() * 1000
     # TODO: Do we need to perform the check that disclosure_delay > 1 ?
