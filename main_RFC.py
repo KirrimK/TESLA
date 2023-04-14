@@ -1,7 +1,7 @@
 #import dis
 from hashlib import sha256, shake_256
 import hmac
-from time import time # perf_counter, sleep
+from time import time,sleep # perf_counter, sleep
 from math import ceil, floor
 
 class Sender:
@@ -50,7 +50,7 @@ def create_key_chain(private_seed: bytes, N: int):
 def sender_setup(private_seed: bytes, key_chain_length: int, rate, upper_bound_network_delay, rtt):
     n = rate # Send a packet every n msec
     m = upper_bound_network_delay # The upper bound on the network delay
-    T_int = max(n, m) * 1000 # Measured in seconds, temps d'un interval
+    T_int = max(n, m) # Measured in seconds, temps d'un interval
 
     intervals: list[float] = []
     
@@ -60,7 +60,7 @@ def sender_setup(private_seed: bytes, key_chain_length: int, rate, upper_bound_n
     RTT = rtt #should be in sec too
     disclosure_delay = (ceil(RTT/T_int) + 1) # Measured in time intervals. This SHOULD NOT BE == 1 i.e. delay of one interval (see RFC 3.6)
     """ c'est le d partie 2.6 du papier"""
-
+    print(disclosure_delay)
     # NOTE: Maybe better shifted start time?
     start_time = time() - disclosure_delay * T_int #in second
     for i in range(0, key_chain_length):
@@ -71,6 +71,7 @@ def sender_setup(private_seed: bytes, key_chain_length: int, rate, upper_bound_n
 def send_message(message: bytes, sender_obj: Sender, i: int):
     message_time  = time() #in sec
     interval = floor((message_time - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int) #i
+    print(sender_obj.T_int)
 
     disclosed_key_index = interval - sender_obj.d #i-d
     key_i = sender_obj.key_chain[interval] #K_i
@@ -112,7 +113,7 @@ def receiver_check_packet_interval(disclosed_key: str, last_key: str, interval: 
         temp_key = sha256(temp_key.encode()).hexdigest()
         hash_operations += 1 
 
-    if (interval >= hash_operations + disclosure_delay):
+    if (interval > hash_operations + disclosure_delay):
         print("ERROR: INVALID PACKET OR SOMETHING IS FISHY ATLEAST (stated interval in packet does not work with disclosed_key)")
     
     return hash_operations + disclosure_delay #interval calculated with disclosed key
@@ -154,7 +155,7 @@ def message_verification(packet_in_buffer: tuple[int,bytes,bytes], receiver: Rec
 
     hm = hmac.new(msg=packet_in_buffer[1], key=derived_key.encode(), digestmod=sha256)
 
-    if hm == packet_in_buffer[2]: #message is authenticated
+    if hmac.compare_digest(hm.digest(), packet_in_buffer[2]): #message is authenticated
         receiver.authentified_message.append(packet_in_buffer[1])
         return True
     else:
@@ -167,17 +168,17 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
     # We need to determine in which interval the received packet is to preform the safety test later
     packet_interval = receiver_check_packet_interval(disclosed_key=packet[2], last_key=receiver_obj.K_0, 
                                              interval=packet[3], key_chain_len=receiver_obj.key_chain_len, disclosure_delay = receiver_obj.d)
-
     # If the packet is not safe, print a message(or discard it)
     if not receiver_check_safety(receiver_obj=receiver_obj, interval=packet_interval): 
         print("Packet {0},{1},{2},{3} is not safe".format(packet[0],packet[1], packet[2], packet[3]))
         receiver_obj.fishy_buffer.append((0,packet_interval, packet[0], packet[1])) #0 stands for "did not pass the safe packet test"
     else: #the packet seems legit
-
+        
         #new key index test
         disclosed_interval: int = packet_interval - receiver_obj.d #i-d
         if disclosed_interval <= receiver_obj.last_key_index: # key has already been disclosed
             message_verification(packet_in_buffer=(disclosed_interval, packet[0], packet[1]), receiver=receiver_obj)
+            print(f"Number of authentified message is {len(receiver_obj.authentified_message)}")
         else:
             #it's a new key, gotta check if it's one of the key chain
             if not key_chain_verification(key=packet[2], most_recent_disclosed_key=receiver_obj.most_recent_disclosed_key, last_key_index=receiver_obj.last_key_index, disclosed_interval=disclosed_interval):
@@ -192,8 +193,18 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
                 receiver_obj.buffer.append((packet_interval, packet[0], packet[1]))
 
                 #filter all the packets that can be authentified from the buffer
+                can_authentify = filter(lambda p: p[0]<receiver_obj.last_key_index, receiver_obj.buffer)
 
+                #update buffer
+                receiver_obj.buffer = [packet for packet in receiver_obj.buffer if packet not in can_authentify]
+
+                #apply message verification to all can_authentify message
+                for i,p in enumerate(can_authentify):
+                    message_verification(packet_in_buffer=p, receiver=receiver_obj)
                 
+                print(f"Number of authentified message is {len(receiver_obj.authentified_message)}")
+
+
 
 
         
@@ -205,7 +216,7 @@ def main():
     N = 10
     message = b"crypthjkhkjhjhkjkjhgkhh"
 
-    sender_obj = sender_setup(private_seed=private_seed, key_chain_length=N, rate=3, upper_bound_network_delay=4, rtt=2)
+    sender_obj = sender_setup(private_seed=private_seed, key_chain_length=N, rate=3, upper_bound_network_delay=0, rtt=2)
 
     sender_interval = floor((time()* 1000 - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int) #interval dans lequel le sender se situe actuellement
 
@@ -213,7 +224,7 @@ def main():
     # last_key = sender_obj.key_chain[sender_interval - sender_obj.d]
     last_key = sender_obj.key_chain[0]
     # print(last_key)
-    D_t = 100
+    D_t = -60
     receiver_obj = boostrap_receiver(last_key=last_key, T_int=sender_obj.T_int, T0=sender_obj.T0,
       chain_length=N, disclosure_delay=sender_obj.d, sender_interval=sender_interval, D_t = D_t)
 
@@ -227,12 +238,13 @@ def main():
 
         # TODO: Create and adversarial case where we send a message with an already disclosed key
 
-        packet = send_message(message=message, sender_obj=sender_obj, i=a)
+        packet = send_message(message=message, sender_obj=sender_obj, i=1)
         print(packet)
-        print(len(packet[1])+len(packet[2].encode("ascii"))+len((packet[3].to_bytes(4, byteorder='big'))))
-        print(type(packet[0]), type(packet[1]), type(packet[2]), type(packet[3]) )
-        print(len(packet[0]), len(packet[1]), len(packet[2]), len(packet[3].to_bytes(4, byteorder='big')) )
+        #print(len(packet[1])+len(packet[2].encode("ascii"))+len((packet[3].to_bytes(4, byteorder='big'))))
+        #print(type(packet[0]), type(packet[1]), type(packet[2]), type(packet[3]) )
+        #print(len(packet[0]), len(packet[1]), len(packet[2]), len(packet[3].to_bytes(4, byteorder='big')) )
         receive_message(packet=packet, receiver_obj=receiver_obj)
+        sleep(4)
 
     
 
