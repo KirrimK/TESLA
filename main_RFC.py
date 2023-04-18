@@ -286,7 +286,7 @@ def main():
     receiver_obj = boostrap_receiver(last_key=last_key, T_int=sender_obj.T_int, T0=sender_obj.T0,
       chain_length=N, disclosure_delay=sender_obj.d, sender_interval=sender_interval, D_t = D_t)
 
-    sleep(2*sender_obj.T_int)
+    sleep((sender_obj.d+1)*sender_obj.T_int)
     for a in range(0, 20):
         print("\033[92m" f"Current sender interval is: {floor((time() - sender_obj.intervals[0]) * 1.0 / sender_obj.T_int)}"+ "\033[0m")
         if a == 0:
