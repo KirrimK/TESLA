@@ -349,7 +349,7 @@ def main():
     total_time_process = 0 
     nb_renewal = 0
     sleep((sender_obj.d+1)*sender_obj.T_int)
-    nb_message = 100000
+    nb_message = 10000
     start = time()
     for a in range(0, nb_message):
         if a%1000 == 0:
