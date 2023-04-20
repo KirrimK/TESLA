@@ -361,7 +361,7 @@ def main():
             renew_key_chain(sender_obj, message_time)
             update_receiver(last_key=sender_obj.key_chain[0], T_int=sender_obj.T_int, T0=sender_obj.T0, sender_interval=0, receiver=receiver_obj)
             packet = send_message(message=b"Disclosing previous key chain", sender_obj=sender_obj, end=True)
-            receive_message(packet=packet, receiver_obj=receiver_obj)
+            receive_message(packet=packet, receiver_obj=receiver_obj) #type: ignore
             end_time_renew = time()
             #print(f"Time to update key chain is: {end_time_renew-start_time_renew}")
             total_time_renew += end_time_renew-start_time_renew
