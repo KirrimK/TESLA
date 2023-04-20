@@ -14,8 +14,7 @@ class Sender:
         self.d: int = disclosure_delay #nb intervals to wait to get the key to authentify a certain message in a certain time interval
         self.last_T: int = last_interval
         self.key_chain_len: int = len(self.key_chain)
-        self.final_key: str = self.key_chain[-1]
-
+        self.previous_final_key: str = None
 class Receiver:
     def __init__(self, time_difference: float, T0: float, T_int: int, disclosure_delay: int, sender_interval: int, key_chain_len: int, max_key: str, last_key_index: int):
         self.D_t: float = time_difference # represent max time delay for a message sent by S to reach R ?
@@ -29,6 +28,7 @@ class Receiver:
         self.buffer: list[tuple[int, bytes, bytes]] = []
         self.fishy_buffer: list[tuple[int, int, bytes, bytes]] = []
         self.authenticated_message: list[bytes] = []
+        self.nb_authenticated_message: int = 0
         self.most_recent_disclosed_key: str = self.K_0
         self.known_keys: dict[int, str] = {0: self.K_0}
     
@@ -79,7 +79,7 @@ def send_message(message: bytes, sender_obj: Sender, end:bool):
         shake.update(key_i.encode())
         derived_key_i = shake.hexdigest(len(key_i)) #f'(K_i)
         hm = hmac.new(msg=message, key=derived_key_i.encode(), digestmod=sha256)
-        return (message, hm.digest(), sender_obj.final_key, -1)
+        return (message, hm.digest(), sender_obj.previous_final_key, -1)
     else:
         message_time  = time() #in sec
         interval = floor((message_time - sender_obj.intervals[0]) / sender_obj.T_int) #i
@@ -160,6 +160,8 @@ def renew_key_chain(sender: Sender, time: float):
     
     private_seed = random.randbytes(12)
     sender.intervals = []
+    sender.previous_key_chain = sender.key_chain
+    sender.previous_final_key = sender.key_chain[-1]
     sender.key_chain = create_key_chain(private_seed=private_seed, N=sender.key_chain_len)
 
     for i in range(0, sender.key_chain_len):
@@ -237,18 +239,18 @@ def message_verification(packet_in_buffer: tuple[int,bytes,bytes], receiver: Rec
     hm = hmac.new(msg=packet_in_buffer[1], key=derived_key.encode(), digestmod=sha256)
     #print(f"hm : {hm.digest()}, hmac: {packet_in_buffer[2]}")
     if hmac.compare_digest(hm.digest(), packet_in_buffer[2]): #message is authenticated
-        receiver.authenticated_message.append(packet_in_buffer[1])
+        #receiver.authenticated_message.append(packet_in_buffer[1])
+        receiver.nb_authenticated_message += 1
         return True
     else:
-        #print('\033[91m' + f"message : {packet_in_buffer[1]} did not pass the hmac verification test" + "\033[0m")
+        print('\033[91m' + f"message : {packet_in_buffer[1]} did not pass the hmac verification test (not a key renewal)" + "\033[0m")
         return False
 
 def end_message_verification(packet_in_buffer: tuple[int,bytes,bytes], receiver: Receiver, final_key: str, final_interval: int):
     interval_key = final_key
     for i in range(final_interval-packet_in_buffer[0]):
             interval_key = sha256(interval_key.encode()).hexdigest()
-    #print(f"internal key: {interval_key}")
-    
+
     shake = shake_256()
     shake.update(interval_key.encode())
     derived_key = shake.hexdigest(len(interval_key))
@@ -256,10 +258,11 @@ def end_message_verification(packet_in_buffer: tuple[int,bytes,bytes], receiver:
     hm = hmac.new(msg=packet_in_buffer[1], key=derived_key.encode(), digestmod=sha256)
     #print(f"hm : {hm.digest()}, hmac: {packet_in_buffer[2]}")
     if hmac.compare_digest(hm.digest(), packet_in_buffer[2]): #message is authenticated
-        receiver.authenticated_message.append(packet_in_buffer[1])
+        #receiver.authenticated_message.append(packet_in_buffer[1])
+        receiver.nb_authenticated_message += 1
         return True
     else:
-        #print('\033[91m' + f"message : {packet_in_buffer[1]} did not pass the hmac verification test" + "\033[0m")
+        print('\033[91m' + f"message : {packet_in_buffer[1]} did not pass the hmac verification test (followinf a key renewal)" + "\033[0m")
         return False
 
 def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receiver):
@@ -282,11 +285,11 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
                 #print(f"Number of authentified message is {len(receiver_obj.authenticated_message)}")
 
         else:
-            #print('\033[91m' + f"message : {packet[0]} did not pass the hmac verification test" + "\033[0m")
+            print('\033[91m' + f"message : {packet[0]} did not pass the hmac verification test" + "\033[0m")
             return False
     else:
         if not receiver_check_safety(receiver_obj=receiver_obj, interval=packet[3]): 
-            #print('\033[91m' + "Packet {0},{1},{2},{3} is not safe".format(packet[0],packet[1], packet[2], packet[3]) + "\033[0m")
+            print('\033[91m' + "Packet {0},{1},{2},{3} is not safe".format(packet[0],packet[1], packet[2], packet[3]) + "\033[0m")
             receiver_obj.fishy_buffer.append((0,packet[3], packet[0], packet[1])) #0 stands for "did not pass the safe packet test"
         else: #the packet seems legit
             
@@ -300,7 +303,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
                 #print("key is not known")
                 #it's a new key, gotta check if it's one of the key chain
                 if not key_chain_verification(key=packet[2], most_recent_disclosed_key=receiver_obj.most_recent_disclosed_key, last_key_index=receiver_obj.last_key_index, disclosed_interval=disclosed_interval):
-                    #print('\033[91m' + f"message : {packet[0]} did not pass the key chain verification" + "\033[0m")
+                    print('\033[91m' + f"message : {packet[0]} did not pass the key chain verification" + "\033[0m")
                     receiver_obj.fishy_buffer.append((1,packet[3], packet[0], packet[1])) #1 stands for "did not pass the key verification test"
                 else:
                     #update most_recent_disclosed_key and last_key_index
@@ -327,8 +330,8 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
 
 
 private_seed = b"Hello world"
-N = 1000
-rate = 1 #sendet send a packer every rate msec
+N = 10
+rate = 0.05 #sendet send a packer every rate msec
 sender_obj = sender_setup(private_seed=private_seed, key_chain_length=N, rate=rate, upper_bound_network_delay=1, rtt=1)
 sender_time = time()
 sender_interval = floor((sender_time - sender_obj.intervals[0]) / sender_obj.T_int) #interval dans lequel le sender se situe actuellement
@@ -337,27 +340,52 @@ last_key = sender_obj.key_chain[0]
 D_t = 0 # in sec
 receiver_obj = boostrap_receiver(last_key=last_key, T_int=sender_obj.T_int, T0=sender_obj.T0,
     chain_length=N, disclosure_delay=sender_obj.d, sender_interval=sender_interval, D_t = D_t)
-#print(sender_obj.key_chain)
+
+
+
 
 def main():
+    total_time_renew = 0
+    total_time_process = 0 
+    nb_renewal = 0
     sleep((sender_obj.d+1)*sender_obj.T_int)
-    for a in range(0, 10000):
+    nb_message = 100000
+    start = time()
+    for a in range(0, nb_message):
+        if a%1000 == 0:
+            print(a)
         message_time  = time() #in sec
         #check if there's enought keys left
         if message_time >= sender_obj.last_T - sender_obj.d * sender_obj.T_int:
-            print('ho')
+            nb_renewal += 1
+            start_time_renew = time()
             renew_key_chain(sender_obj, message_time)
             update_receiver(last_key=sender_obj.key_chain[0], T_int=sender_obj.T_int, T0=sender_obj.T0, sender_interval=0, receiver=receiver_obj)
             packet = send_message(message=b"Disclosing previous key chain", sender_obj=sender_obj, end=True)
             receive_message(packet=packet, receiver_obj=receiver_obj)
+            end_time_renew = time()
+            #print(f"Time to update key chain is: {end_time_renew-start_time_renew}")
+            total_time_renew += end_time_renew-start_time_renew
 
+        start_time = time()
         packet = send_message(message=f"{a}".encode(encoding='UTF-8'), sender_obj=sender_obj, end=False)
         receive_message(packet=packet, receiver_obj=receiver_obj) # type: ignore
-        sleep(1/(1000*rate))
-    print(f"This what could be authenticated: {receiver_obj.authenticated_message}")
+        end_time = time()
+        #print(f"Time to update send packet and process it is: {end_time-start_time}")
+        total_time_process += end_time-start_time
+
+        sleep(rate/1000)
+    end = time()
+    #print(f"This what could be authenticated: {receiver_obj.authenticated_message}")
+    print(f"The number of messages authenticated is : {receiver_obj.nb_authenticated_message}")
     print(f"Those are the fishy packets: {receiver_obj.fishy_buffer}")
     print(f"Those are the packets that still require authentication: {receiver_obj.buffer}")
-    print((len(receiver_obj.authenticated_message)+len(receiver_obj.buffer))/10000*100)
+    
+    print((receiver_obj.nb_authenticated_message+len(receiver_obj.buffer))/nb_message*100)
+
+    print(f"average processing time for a message is: {total_time_process/nb_message}")
+    print(f"average renewal time: {total_time_renew/nb_renewal}")
+    print(f"total time is: {end-start}")
 
 if __name__ == "__main__":
     main()
