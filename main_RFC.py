@@ -12,9 +12,9 @@ class Sender:
         self.T_int: int = T_int #time of an interval in seconds
         self.intervals: list[float] = intervals #list of inferior bound of each interval [T0, T0+T_int, ....]
         self.d: int = disclosure_delay #nb intervals to wait to get the key to authentify a certain message in a certain time interval
-        self.last_T: int = last_interval
+        self.last_T: float = last_interval
         self.key_chain_len: int = len(self.key_chain)
-        self.previous_final_key: str = None
+        self.previous_final_key: str|None = None
 class Receiver:
     def __init__(self, time_difference: float, T0: float, T_int: int, disclosure_delay: int, sender_interval: int, key_chain_len: int, max_key: str, last_key_index: int):
         self.D_t: float = time_difference # represent max time delay for a message sent by S to reach R ?
@@ -160,7 +160,6 @@ def renew_key_chain(sender: Sender, time: float):
     
     private_seed = random.randbytes(12)
     sender.intervals = []
-    sender.previous_key_chain = sender.key_chain
     sender.previous_final_key = sender.key_chain[-1]
     sender.key_chain = create_key_chain(private_seed=private_seed, N=sender.key_chain_len)
 
