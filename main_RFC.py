@@ -9,18 +9,19 @@ class Sender:
     def __init__(self, initial_time: float, key_chain: list[str], T_int: int, intervals: list[float], disclosure_delay: int, last_interval: float):
         self.T0: float = initial_time #start time of sender
         self.key_chain: list[str] = key_chain #[K_n,....,K_0] où K_(n-1) = sha256(K_n)
-        self.T_int: int = T_int #time of an interval in seconds
+        self.T_int: float = T_int #time of an interval in seconds
         self.intervals: list[float] = intervals #list of inferior bound of each interval [T0, T0+T_int, ....]
         self.d: int = disclosure_delay #nb intervals to wait to get the key to authentify a certain message in a certain time interval
         self.last_T: float = last_interval
         self.key_chain_len: int = len(self.key_chain)
         self.previous_final_key: str|None = None
+
 class Receiver:
     def __init__(self, time_difference: float, T0: float, T_int: int, disclosure_delay: int, sender_interval: int, key_chain_len: int, max_key: str, last_key_index: int):
         self.D_t: float = time_difference # represent max time delay for a message sent by S to reach R ?
         self.K_0: str = max_key #K_0 cf Sender
         self.T0: float = T0 #cf sender
-        self.T_int: int = T_int #cf sender
+        self.T_int: float = T_int #cf sender
         self.d: int = disclosure_delay #nb intervals to wait to get the key to authentify a certain message in a certain time interval
         self.sender_interval: int = sender_interval #interval dans lequel le sender se situe actuellement
         self.key_chain_len: int = key_chain_len
