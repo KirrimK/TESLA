@@ -6,7 +6,7 @@ from math import ceil, floor
 import random
 
 class Sender:
-    def __init__(self, initial_time: float, key_chain: list[str], T_int: int, intervals: list[float], disclosure_delay: int, last_interval: float):
+    def __init__(self, initial_time: float, key_chain: list[str], T_int: float, intervals: list[float], disclosure_delay: int, last_interval: float):
         self.T0: float = initial_time #start time of sender
         self.key_chain: list[str] = key_chain #[K_n,....,K_0] où K_(n-1) = sha256(K_n)
         self.T_int: float = T_int #time of an interval in seconds
@@ -17,7 +17,7 @@ class Sender:
         self.previous_final_key: str|None = None
 
 class Receiver:
-    def __init__(self, time_difference: float, T0: float, T_int: int, disclosure_delay: int, sender_interval: int, key_chain_len: int, max_key: str, last_key_index: int):
+    def __init__(self, time_difference: float, T0: float, T_int: float, disclosure_delay: int, sender_interval: int, key_chain_len: int, max_key: str, last_key_index: int):
         self.D_t: float = time_difference # represent max time delay for a message sent by S to reach R ?
         self.K_0: str = max_key #K_0 cf Sender
         self.T0: float = T0 #cf sender
@@ -173,7 +173,7 @@ def renew_key_chain(sender: Sender, time: float):
     
 
 
-def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, disclosure_delay: int, sender_interval: int, D_t: float):
+def boostrap_receiver(last_key: str, T_int: float, T0: float, chain_length: int, disclosure_delay: int, sender_interval: int, D_t: float):
     #Assuming that synchronisation has been done already
     #Need to ad verification on last key (Signature checking)
     K_0 = last_key
@@ -189,7 +189,7 @@ def boostrap_receiver(last_key: str, T_int: int, T0: float, chain_length: int, d
     return Receiver(time_difference=D_t, T0=T_zero, T_int=T_int, disclosure_delay=disclosure_delay, 
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
-def update_receiver(last_key: str, T_int: int, T0: float, sender_interval: int, receiver: Receiver):
+def update_receiver(last_key: str, T_int: float, T0: float, sender_interval: int, receiver: Receiver):
     receiver.T0 = T0
     receiver.T_int = T_int
     receiver.K_0 = last_key
