@@ -190,6 +190,7 @@ def boostrap_receiver(last_key: str, T_int: float, T0: float, chain_length: int,
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
 def update_receiver(last_key: str, T_int: float, T0: float, sender_interval: int, receiver: Receiver):
+    print(f"last t0: {receiver.T0}, now : {T0}")
     receiver.T0 = T0
     receiver.T_int = T_int
     receiver.K_0 = last_key
