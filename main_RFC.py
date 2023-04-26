@@ -206,7 +206,7 @@ def receiver_check_safety(receiver_obj: Receiver, interval: int):
     """
     sender_max: float = time() + receiver_obj.D_t#in second, upperbound of the time of arrival of the packet in sender referential
     highest_possible_sender_intervals = floor((sender_max - receiver_obj.T0) / receiver_obj.T_int)
-
+    print(f"high: {highest_possible_sender_intervals}, i+d: {interval+receiver_obj.d}")
     return highest_possible_sender_intervals <= interval + receiver_obj.d #cf 2.6 i + d > i'
     
 
