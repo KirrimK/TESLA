@@ -213,6 +213,7 @@ def receiver_check_safety(receiver_obj: Receiver, interval: int, time: float):
     
 
 def key_chain_verification(key: str, most_recent_disclosed_key: str, last_key_index: int, disclosed_interval: int):
+    #print(f"key: {key}, recent: {most_recent_disclosed_key}")
     temp_key = key
     hash_operations = 0
     while (temp_key != most_recent_disclosed_key):
@@ -284,7 +285,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
             for i,p in enumerate(can_authentify):
                 res = end_message_verification(packet_in_buffer=p, receiver=receiver_obj, final_key=packet[2], final_interval=disclosed_interval)
                     
-                print(f"Number of authentified message is {receiver_obj.authenticated_message}")
+                #print(f"Number of authentified message is {receiver_obj.authenticated_message}")
 
         else:
             print('\033[91m' + f"message : {packet[0]} did not pass the hmac verification test" + "\033[0m")
@@ -300,7 +301,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
             if packet[3] <= receiver_obj.last_key_index and len(receiver_obj.known_keys)>2:
                 #print("key is already known") # key has already been disclosed
                 message_verification(packet_in_buffer=(packet[3], packet[0], packet[1]), receiver=receiver_obj)
-                print(f"Number of authentified message is {receiver_obj.nb_authenticated_message}")
+                #print(f"Number of authentified message is {receiver_obj.nb_authenticated_message}")
             else:
                 #print("key is not known")
                 #it's a new key, gotta check if it's one of the key chain
@@ -327,7 +328,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
                     for i,p in enumerate(can_authentify):
                         res = message_verification(packet_in_buffer=p, receiver=receiver_obj)
                     
-                    print(f"Number of authentified message is {receiver_obj.nb_authenticated_message}")
+                    #print(f"Number of authentified message is {receiver_obj.nb_authenticated_message}")
 
 
 
