@@ -178,6 +178,7 @@ def boostrap_receiver(last_key: str, T_int: float, T0: float, chain_length: int,
     #Need to ad verification on last key (Signature checking)
     K_0 = last_key
     T_zero = T0
+    print(f"Fist T0: {T0}")
     T_int = T_int
 
     sender_interval = sender_interval
@@ -200,13 +201,14 @@ def update_receiver(last_key: str, T_int: float, T0: float, sender_interval: int
     receiver.known_keys = {0: last_key}
 
 
-def receiver_check_safety(receiver_obj: Receiver, interval: int):
+def receiver_check_safety(receiver_obj: Receiver, interval: int, time: float):
     """
     This function performs the safety test to check if the received packet HMAC is based on a still secret key 
    
     """
-    sender_max: float = time() + receiver_obj.D_t#in second, upperbound of the time of arrival of the packet in sender referential
+    sender_max: float = time + receiver_obj.D_t#in second, upperbound of the time of arrival of the packet in sender referential
     highest_possible_sender_intervals = floor((sender_max - receiver_obj.T0) / receiver_obj.T_int)
+    print(f"sender-max : {sender_max}, t0: {receiver_obj.T0}")
     print(f"high: {highest_possible_sender_intervals}, i+d: {interval+receiver_obj.d}")
     return highest_possible_sender_intervals <= interval + receiver_obj.d #cf 2.6 i + d > i'
     
@@ -266,7 +268,7 @@ def end_message_verification(packet_in_buffer: tuple[int,bytes,bytes], receiver:
         print('\033[91m' + f"message : {packet_in_buffer[1]} did not pass the hmac verification test (followinf a key renewal)" + "\033[0m")
         return False
 
-def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receiver):
+def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receiver, time: float):
     #print(f"Received packet: {packet}")
     if packet[3] == -1:
         # NOTE: need to add a way tocheck authenticity of this packet
@@ -289,7 +291,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
             print('\033[91m' + f"message : {packet[0]} did not pass the hmac verification test" + "\033[0m")
             return False
     else:
-        if not receiver_check_safety(receiver_obj=receiver_obj, interval=packet[3]): 
+        if not receiver_check_safety(receiver_obj=receiver_obj, interval=packet[3], time=time): 
             print('\033[91m' + "Packet {0},{1},{2},{3} is not safe".format(packet[0],packet[1], packet[2], packet[3]) + "\033[0m")
             receiver_obj.fishy_buffer.append((0,packet[3], packet[0], packet[1])) #0 stands for "did not pass the safe packet test"
         else: #the packet seems legit
