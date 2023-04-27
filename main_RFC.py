@@ -191,7 +191,6 @@ def boostrap_receiver(last_key: str, T_int: float, T0: float, chain_length: int,
         sender_interval=sender_interval, key_chain_len=chain_length,max_key=K_0, last_key_index=last_key_index)
 
 def update_receiver(last_key: str, T_int: float, T0: float, sender_interval: int, receiver: Receiver):
-    print(f"last t0: {receiver.T0}, now : {T0}")
     receiver.T0 = T0
     receiver.T_int = T_int
     receiver.K_0 = last_key
@@ -208,12 +207,12 @@ def receiver_check_safety(receiver_obj: Receiver, interval: int, time: float):
     """
     sender_max: float = time + receiver_obj.D_t#in second, upperbound of the time of arrival of the packet in sender referential
     highest_possible_sender_intervals = floor((sender_max - receiver_obj.T0) / receiver_obj.T_int)
-    print(f"sender-max : {sender_max}, t0: {receiver_obj.T0}")
-    print(f"high: {highest_possible_sender_intervals}, i+d: {interval+receiver_obj.d}")
+    #print(f"sender-max : {sender_max}, t0: {receiver_obj.T0}")
+    #print(f"high: {highest_possible_sender_intervals}, i+d: {interval+receiver_obj.d}")
     return highest_possible_sender_intervals <= interval + receiver_obj.d #cf 2.6 i + d > i'
     
 
-def key_chain_verification(key: str, most_recent_disclosed_key: str, last_key_index: int, disclosed_interval: int): 
+def key_chain_verification(key: str, most_recent_disclosed_key: str, last_key_index: int, disclosed_interval: int):
     temp_key = key
     hash_operations = 0
     while (temp_key != most_recent_disclosed_key):
@@ -285,7 +284,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
             for i,p in enumerate(can_authentify):
                 res = end_message_verification(packet_in_buffer=p, receiver=receiver_obj, final_key=packet[2], final_interval=disclosed_interval)
                     
-                #print(f"Number of authentified message is {len(receiver_obj.authenticated_message)}")
+                print(f"Number of authentified message is {len(receiver_obj.authenticated_message)}")
 
         else:
             print('\033[91m' + f"message : {packet[0]} did not pass the hmac verification test" + "\033[0m")
@@ -301,7 +300,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
             if packet[3] <= receiver_obj.last_key_index and len(receiver_obj.known_keys)>2:
                 #print("key is already known") # key has already been disclosed
                 message_verification(packet_in_buffer=(packet[3], packet[0], packet[1]), receiver=receiver_obj)
-                #print(f"Number of authentified message is {len(receiver_obj.authenticated_message)}")
+                print(f"Number of authentified message is {len(receiver_obj.authenticated_message)}")
             else:
                 #print("key is not known")
                 #it's a new key, gotta check if it's one of the key chain
@@ -328,7 +327,7 @@ def receive_message(packet: tuple[bytes, bytes, str, int], receiver_obj: Receive
                     for i,p in enumerate(can_authentify):
                         res = message_verification(packet_in_buffer=p, receiver=receiver_obj)
                     
-                    #print(f"Number of authentified message is {len(receiver_obj.authenticated_message)}")
+                    print(f"Number of authentified message is {len(receiver_obj.authenticated_message)}")
 
 
 
