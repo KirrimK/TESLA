@@ -7,13 +7,13 @@ import random
 
 
 class Sender:
-    def __init__(self, initial_time: float, key_chain: list[str], T_int: float, intervals: list[float], disclosure_delay: int, last_interval: float):
+    def __init__(self, initial_time: float, key_chain: list[str], T_int: float, intervals: list[float], disclosure_delay: int, last_interval_time: float):
         self.T0: float = initial_time #start time of sender
         self.key_chain: list[str] = key_chain #[K_n,....,K_0] où K_(n-1) = sha256(K_n)
         self.T_int: float = T_int #time of an interval in seconds
         self.intervals: list[float] = intervals #list of inferior bound of each interval [T0, T0+T_int, ....]
         self.d: int = disclosure_delay #nb intervals to wait to get the key to authentify a certain message in a certain time interval
-        self.last_T: float = last_interval
+        self.last_T: float = last_interval_time
         self.key_chain_len: int = len(self.key_chain)
         self.previous_final_key: str|None = None
 
@@ -70,8 +70,8 @@ def sender_setup(private_seed: bytes, key_chain_length: int, rate_seconds, upper
     for i in range(0, key_chain_length):
         intervals.append(start_time + i * T_int)
     
-    last_interval = start_time + key_chain_length*T_int
-    return Sender(initial_time=start_time, key_chain=key_chain, T_int=T_int, intervals=intervals, disclosure_delay=disclosure_delay, last_interval=last_interval)
+    last_interval_time = start_time + key_chain_length*T_int
+    return Sender(initial_time=start_time, key_chain=key_chain, T_int=T_int, intervals=intervals, disclosure_delay=disclosure_delay, last_interval_time=last_interval_time)
 
 def send_message(message: bytes, sender_obj: Sender, end:bool):
     if end: # message sent at the end of a key chain 
